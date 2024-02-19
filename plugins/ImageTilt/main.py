@@ -33,10 +33,10 @@ import time
 from scipy import ndimage
 import math
 
-pixelsPerMeter = 0.1 # 1m = 13px
-atResolution = 301  # resolution that the above pixelsPerMeter was captured at 
+pixelMultiplier = -1.8
+atResolution = 301  # scaler for the multiplier 
 angle = 25
-secondsToCapture = 1
+secondsToCapture = 10
 def vertical_perspective_warp(image):
     global angle
     height, width = image.shape[:2]
@@ -54,15 +54,35 @@ def vertical_perspective_warp(image):
     warped_image = cv2.bitwise_or(mask_red, mask_green)
     return warped_image
 
-def rotateImage(image, angle):
+def rotateImage(image, angle, center=None):
     # Check if the angle is negative
     if angle < 0:
         angle = 360 + angle
+    if center == None:
+        center = tuple(np.array([col/2,row/2]))
+    else:
+        center = tuple(center)
     row,col = image.shape[0:2]
-    center=tuple(np.array([col/2,row-row/5]))
     rot_mat = cv2.getRotationMatrix2D(center,angle,1.0)
     new_image = cv2.warpAffine(image, rot_mat, (col,row))
     return new_image
+
+def getTiltedCenterCoordinate(width, height):
+    x = width / 2
+    y = height * 0.5245 # The approximate center of the nav arrow in ETS2
+    # Create an image, that has a 10x10 "white" pixel at the center
+    image = np.zeros((height, width, 3), dtype=np.uint8)
+    image[int(y) - 20:int(y) + 20, int(x) - 20:int(x) + 20] = [20, 20, 220]
+    # Warp the image
+    warpedImage = vertical_perspective_warp(image)
+    # Find the white pixel
+    whitePixel = np.where(warpedImage == 255)
+    # If there is no white pixel, return the center of the image
+    if len(whitePixel[0]) == 0:
+        return (x, y)
+    # Else return the average of the white pixels
+    return (int(np.mean(whitePixel[1])), int(np.mean(whitePixel[0])))
+
 
 # The main file runs the "plugin" function each time the plugin is called
 # The data variable contains the data from the mainloop, plugins can freely add and modify data as needed
@@ -71,14 +91,16 @@ pastImages = [] # Will save the last 5s of images
 def plugin(data):
     try:
         frame = data["frame"]
-        pxPerMeter = pixelsPerMeter * (frame.shape[0] / atResolution)
+        centerCoord = getTiltedCenterCoordinate(frame.shape[1], frame.shape[0])
+        pxPerMeter = pixelMultiplier * (frame.shape[0] / atResolution)
         
         tiltedFrame = vertical_perspective_warp(frame)
+        
         timestamp = time.time()
         # Save the image, timestamp and position to the list
         position = (data["api"]["truckPlacement"]["coordinateX"], data["api"]["truckPlacement"]["coordinateZ"])
         rotation = (data["api"]["truckPlacement"]["rotationX"], data["api"]["truckPlacement"]["rotationY"], data["api"]["truckPlacement"]["rotationZ"])
-        rotatedFrame = rotateImage(tiltedFrame, rotation[0]*360)
+        rotatedFrame = rotateImage(tiltedFrame, rotation[0]*360, center=centerCoord)
         pastImages.append((rotatedFrame, timestamp, position, rotation))
         # Check if the first image is older than the given time
         while pastImages[0][1] < timestamp - secondsToCapture:
@@ -87,8 +109,7 @@ def plugin(data):
         # Draw the last 5s of images as the frame. The last image will be the most visible, with the first image having an alpha of 0
         frame = np.zeros((frame.shape[0], frame.shape[1], 3), dtype=np.uint8)
         length = len(pastImages)
-        # Want only 50 images
-        imagePerFrame = 0# int(length)
+        imagePerFrame = 10 # int(length)
         counter = 0
         for i, (image, timestamp, position, rotation) in enumerate(pastImages):
             if counter < imagePerFrame and not i == length - 1:

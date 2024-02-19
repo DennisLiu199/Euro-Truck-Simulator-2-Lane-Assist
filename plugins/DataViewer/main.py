@@ -55,9 +55,13 @@ class UI():
             
 
         def updateData(self):
+            # Get the current scroll position
+            scrollPos = self.list.yview()
             self.list.delete(0, tk.END)
             # recursively get all the data
             self.readData("data", self.data, 0)
+            # Set the scroll position back to what it was
+            self.list.yview_moveto(scrollPos[0])
     
         
         def exampleFunction(self):

@@ -32,6 +32,7 @@ class PrefabItem:
     IsSecret = False
     CurvePoints = [[]]
     EndPoints = []
+    BoundingBox = []
     
 class NavigationItem2:
     Uid = 0
@@ -199,6 +200,23 @@ def LoadPrefabItems():
                         road.ConnectedPrefabItems.append(prefabItem.Uid)
                         # print(f"Added prefab item {prefabItem.Uid} to road {road.Uid}")
         
+        
+        # Calculate the bounding box of the prefab item
+        minX = 1000000
+        maxX = -1000000
+        minZ = 1000000
+        maxZ = -1000000
+        for node in prefabItem.Nodes:
+            if node.X < minX:
+                minX = node.X
+            if node.X > maxX:
+                maxX = node.X
+            if node.Z < minZ:
+                minZ = node.Z
+            if node.Z > maxZ:
+                maxZ = node.Z
+        
+        prefabItem.BoundingBox = [minX, maxX, minZ, maxZ]
         
         
         count += 1

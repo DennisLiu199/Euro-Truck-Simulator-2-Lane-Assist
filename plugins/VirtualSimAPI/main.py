@@ -46,9 +46,9 @@ def plugin(data):
     
     # Listen for the arrow keys and move the "truck" accordingly
     if kb.is_pressed("up"):
-        scsPlugin.virtualZ += 10 * data["last"]["executionTimes"]["all"] * 40
-    if kb.is_pressed("down"):
         scsPlugin.virtualZ -= 10 * data["last"]["executionTimes"]["all"] * 40
+    if kb.is_pressed("down"):
+        scsPlugin.virtualZ += 10 * data["last"]["executionTimes"]["all"] * 40
     if kb.is_pressed("left"): 
         scsPlugin.virtualX -= 10 * data["last"]["executionTimes"]["all"] * 40
     if kb.is_pressed("right"): 

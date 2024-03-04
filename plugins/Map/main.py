@@ -39,16 +39,16 @@ from plugins.Map.Visualize import visualize
 import cv2
 from PIL import Image
 
-zoom = 1
 useInternalVisualization = True
 useExternalVisualization = True
+zoom = 2 # How many pixels per meter
+visualizePrefabs = True
 
 # The main file runs the "plugin" function each time the plugin is called
 # The data variable contains the data from the mainloop, plugins can freely add and modify data as needed
 # The data from the last frame is contained under data["last"]
 framesSinceChange = 0
 def plugin(data):
-    global zoom
     global framesSinceChange
     # Check if the GameData folder has it's json files
     filesInGameData = os.listdir(variables.PATH + "/plugins/Map/GameData")
@@ -78,29 +78,21 @@ def plugin(data):
     if roads.roads == []:
         # roads.limitToCount = 10000
         roads.LoadRoads()
-    if prefabs.prefabs == []:
+    if prefabs.prefabs == [] and visualizePrefabs:
         # prefabs.limitToCount = 500
-        prefabs.LoadPrefabs()
-    if prefabItems.prefabItems == []:
+        prefabs.LoadPrefabs() 
+    if prefabItems.prefabItems == [] and visualizePrefabs:
         prefabItems.LoadPrefabItems()
     
     if startPlugin != "":
         mainUI.switchSelectedPlugin(startPlugin)
     
     
-    # Increase / Decrease the zoom with e/q
-    if keyboard.is_pressed("e") and framesSinceChange > 10:
-        zoom -= 1
-        framesSinceChange = 0
-    if keyboard.is_pressed("q") and framesSinceChange > 10:
-        zoom += 1
-        framesSinceChange = 0
-    
-    
     
     if useInternalVisualization:
         img = visualize.VisualizeRoads(data, zoom=zoom)
-        img = visualize.VisualizePrefabs(data, img=img, zoom=zoom)
+        if visualizePrefabs:
+            img = visualize.VisualizePrefabs(data, img=img, zoom=zoom)
         cv2.namedWindow("Roads", cv2.WINDOW_NORMAL)
         cv2.imshow("Roads", img)
         cv2.resizeWindow("Roads", 1000, 1000)

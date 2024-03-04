@@ -28,11 +28,18 @@ class Road():
     Points = None
     IsSecret = False
     ConnectedPrefabItems = []
+    ParallelPoints = []
+    LaneWidth = 0
+    BoundingBox = []
 
 class RoadLook():
     offset = 0.0
     lanesLeft = []
     lanesRight = []
+    shoulderSpaceLeft = 999
+    shoulderSpaceRight = 999
+    roadSizeLeft = 999
+    roadSizeRight = 999
     token = 0
     isHighway = False
     isLocal = False
@@ -183,6 +190,10 @@ def LoadRoads():
         roadObj.RoadLook.isLocal = road["RoadLook"]["IsLocal"]
         roadObj.RoadLook.isExpress = road["RoadLook"]["IsExpress"]
         roadObj.RoadLook.isNoVehicles = road["RoadLook"]["IsNoVehicles"]
+        roadObj.RoadLook.shoulderSpaceLeft = road["RoadLook"]["ShoulderSpaceLeft"]
+        roadObj.RoadLook.shoulderSpaceRight = road["RoadLook"]["ShoulderSpaceRight"]
+        roadObj.RoadLook.roadSizeLeft = road["RoadLook"]["RoadSizeLeft"]
+        roadObj.RoadLook.roadSizeRight = road["RoadLook"]["RoadSizeRight"]
     
         roads.append(roadObj)
         count += 1
@@ -318,3 +329,144 @@ def GetRoadByUid(uid):
             return road
     
     return None
+
+def SetRoadParallelDataByUid(uid, parallelPoints, laneWidth, boundingBox):
+    # Find the road by the UID
+    for road in uidOptimizedRoads[int(str(uid)[:3])]:
+        if road.Uid == uid:
+            road.ParallelPoints = parallelPoints
+            road.LaneWidth = laneWidth
+            road.BoundingBox = boundingBox
+    
+    # Same for the roads array
+    for road in roads:
+        if road.Uid == uid:
+            road.ParallelPoints = parallelPoints
+            road.LaneWidth = laneWidth
+            road.BoundingBox = boundingBox
+
+def CalculateParallelCurves(road):
+    import numpy as np
+    
+    try:
+        points = road.Points
+        lanesLeft = len(road.RoadLook.lanesLeft)
+        lanesRight = len(road.RoadLook.lanesLeft)
+        
+        # if road.RoadLook.roadSizeLeft != 999:
+        #     roadSizeLeft = road.RoadLook.roadSizeLeft
+        #     roadSizeRight = road.RoadLook.roadSizeRight
+        # else:
+        roadSizeLeft = lanesLeft * 4.5
+        roadSizeRight = lanesRight * 4.5
+          
+        if road.RoadLook.shoulderSpaceLeft != 999:
+            roadSizeLeft += road.RoadLook.shoulderSpaceLeft
+        if road.RoadLook.shoulderSpaceRight != 999:
+            roadSizeRight += road.RoadLook.shoulderSpaceRight
+
+        # Calculate lane width
+        totalRoadWidth = roadSizeRight + roadSizeLeft
+        try:
+            laneWidth = totalRoadWidth / (lanesRight + lanesLeft)
+        except:
+            laneWidth = totalRoadWidth
+
+        # Calculate the points for each lane
+        newPoints = []
+
+        pointCounter = 0
+        for point in points:
+            x = point[0]
+            y = point[1]
+
+            # Calculate the tangent vector at the point
+            tangentVector = np.array([0, 0])
+            if pointCounter < len(points) - 1:
+                xPoints = np.array([points[pointCounter][0], points[pointCounter + 1][0]])
+                yPoints = np.array([points[pointCounter][1], points[pointCounter + 1][1]])
+                # Try and not use np.gradient
+                # tangentVector = np.gradient(yPoints, xPoints).T
+                tangentVector = np.array([xPoints[1] - xPoints[0], yPoints[1] - yPoints[0]])
+            else:
+                xPoints = np.array([points[pointCounter - 1][0], points[pointCounter][0]])
+                yPoints = np.array([points[pointCounter - 1][1], points[pointCounter][1]])
+                tangentVector = np.array([xPoints[1] - xPoints[0], yPoints[1] - yPoints[0]])
+                
+
+            # Calculate the normal vector (perpendicular to the tangent)
+            normalVector = np.array([-tangentVector[1], tangentVector[0]])
+
+            # Normalize the normal vector
+            normalVector /= np.linalg.norm(normalVector, axis=0)
+
+            # Calculate the offset for each lane
+            laneOffsetsLeft = np.arange(-lanesLeft - 1, -1) * laneWidth
+            laneOffsetsRight = np.arange(1, lanesRight + 1) * laneWidth
+
+            # Calculate the new points for each lane
+            counter = 0
+            for laneOffset in laneOffsetsLeft:
+                
+                if laneOffset == 0:
+                    continue
+                
+                if lanesRight > 0:
+                    laneOffset += road.RoadLook.offset / 2
+                    if road.Type != "Prefab":
+                        laneOffset += laneWidth
+                    else:
+                        laneOffset += laneWidth - (laneWidth / 3)
+                else:
+                    laneOffset += laneWidth
+                
+                newPoints.append([])
+                offsetVector = laneOffset * normalVector
+
+                newPoint = np.array([x, y]) + offsetVector.T
+                newPoints[counter].append(newPoint.tolist())
+                counter += 1
+
+            for laneOffset in laneOffsetsRight:
+                
+                if laneOffset == 0:
+                    continue
+                
+                if lanesLeft > 0:
+                    laneOffset -= road.RoadLook.offset / 2
+                    if road.Type != "Prefab":
+                        laneOffset -= laneWidth
+                    else:
+                        laneOffset -= laneWidth - (laneWidth / 3)
+                else: 
+                    laneOffset -= laneWidth
+                
+                
+                newPoints.append([])
+                offsetVector = laneOffset * normalVector
+
+                newPoint = np.array([x, y]) + offsetVector.T
+                newPoints[counter].append(newPoint.tolist())
+                counter += 1
+
+            pointCounter += 1
+
+        # Calculate a new bounding box for the road using these points
+        boundingBox = [999999, 999999, -999999, -999999]
+        for lane in newPoints:
+            for point in lane:
+                if point[0] < boundingBox[0]:
+                    boundingBox[0] = point[0]
+                if point[1] < boundingBox[1]:
+                    boundingBox[1] = point[1]
+                if point[0] > boundingBox[2]:
+                    boundingBox[2] = point[0]
+                if point[1] > boundingBox[3]:
+                    boundingBox[3] = point[1]
+        
+        return boundingBox, newPoints, laneWidth
+        
+    except Exception as ex:
+        import traceback
+        traceback.print_exc()
+        return False

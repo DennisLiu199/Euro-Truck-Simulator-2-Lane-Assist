@@ -5,8 +5,8 @@ sv_ttk
 psutil
 scipy
 colorama
-deep_translator
-babel
+deep-translator
+Babel
 pywebview
 matplotlib
 pywin32
@@ -14,11 +14,13 @@ tkinter-tooltip
 pygame
 keyboard
 mouse
-pyautogui
+PyAutoGUI
 progress
 torch
 requests
-gitpython
+GitPython
 setuptools
 ultralytics
---upgrade --no-cache-dir gdown
+PyQt5
+gdown
+importlib_metadata

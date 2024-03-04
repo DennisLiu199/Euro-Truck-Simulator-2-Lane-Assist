@@ -6,6 +6,8 @@ import src.translator as translator
 import webview
 import webbrowser
 from tktooltip import ToolTip
+# Import qt for matplotlib
+import PyQt5.Qt as Qt
 
 lastRow = 0
 lastParent = None
@@ -23,6 +25,7 @@ def Autoplace(parent, row:int, column:int):
     global lastRow
     global lastParent
     global defaultAutoplaceColumn
+    global lastDefaultColumn
     
     if lastParent != parent:
         lastRow = 0
@@ -295,7 +298,7 @@ def MakeLabel(parent, text:str, row:int, column:int, font=("Segoe UI", 10), pady
         return label
         
 
-def MakeEmptyLine(parent, row:int, column:int, columnspan:int=1, pady:int=7, autoplace:bool=False):
+def MakeEmptyLine(parent, row:int, column:int, columnspan:int=1, pady:int=7, autoplace:bool=False, fontSize:int=9):
     """Will create an empty line with the given parameters.
 
     Args:
@@ -305,13 +308,34 @@ def MakeEmptyLine(parent, row:int, column:int, columnspan:int=1, pady:int=7, aut
         columnspan (int, optional): The number of columns to span the empty line over. Defaults to 1.
         pady (int, optional): Defaults to 7.
         autoplace (bool, optional): Defaults to False. Will automatically determine the row the button should be placed on. You can still use the column option freely, but row will be ignored.
+        fontSize (int, optional): Defaults to 9.
     """
     
     if autoplace:
         row = Autoplace(parent, row, column)
     
-    ttk.Label(parent, text="").grid(row=row, column=column, columnspan=columnspan, pady=pady)
-        
+    ttk.Label(parent, text="", font=("Segoe UI", fontSize)).grid(row=row, column=column, columnspan=columnspan, pady=pady)
+    
+def MakeNotebook(parent, row:int, column:int, columnspan:int=1, rowspan:int=1, sticky:str="n", padx:int=5, pady:int=5):
+    """Will create a new ttk.Notebook with the given parameters.
+
+    Args:
+        parent (tkObject): The parent object of the notebook.
+        row (int): The row of the notebook.
+        column (int): The column of the notebook.
+        columnspan (int, optional): Defaults to 1.
+        rowspan (int, optional): Defaults to 1.
+        sticky (str, optional): Defaults to "n".
+        padx (int, optional): Defaults to 5.
+        pady (int, optional): Defaults to 5.
+
+    Returns:
+        ttk.Notebook: The notebook object we created.
+    """
+    notebook = ttk.Notebook(parent)
+    notebook.grid(row=row, column=column, columnspan=columnspan, rowspan=rowspan, sticky=sticky, padx=padx, pady=pady)
+    
+    return notebook
 
 def OpenWebView(title:str, urlOrFile:str, width:int=900, height:int=700):
     """Will open a webview window with the given parameters.
@@ -367,3 +391,157 @@ def AccurateSleep(duration, get_now=time.perf_counter):
     end = now + duration
     while now < end:
         now = get_now()
+        
+def RunEvery(duration, function, *args, **kwargs):
+    """Will run the given function every x seconds.
+
+    Args:
+        duration (float): Seconds to wait between each function call.
+        function (lambda): The function to run.
+    """
+    def wrapper():
+        while True:
+            function(*args, **kwargs)
+            time.sleep(duration)
+            
+    import threading
+    thread = threading.Thread(target=wrapper)
+    thread.daemon = True
+    thread.start()
+    
+def RunIn(duration, function, *args, **kwargs):
+    """Will run the given function after x seconds.
+
+    Args:
+        duration (float): Seconds to wait before running the function.
+        function (lambda): The function to run.
+    """
+    def wrapper():
+        time.sleep(duration)
+        function(*args, **kwargs)
+        
+    import threading
+    thread = threading.Thread(target=wrapper)
+    thread.daemon = True
+    thread.start()
+            
+            
+class PID:
+    """A simple PID controller.
+    
+    Usage:
+    ```python
+    pid = PID(0.2, 0.0, 0.0)
+    pid.SetPoint = 1.0
+    while True:
+        feedback = value
+        pid.update(feedback)
+        output = pid.output
+        time.sleep(0.01)
+        
+    # and auto tune
+    pid.autoTune(feedback)
+    ```
+    
+    Explanation of P, I, D:
+    - P: Proportional. The proportional term produces an output value that is proportional to the current error value.
+    - I: Integral. The integral term produces an output value that is proportional to both the magnitude of the error and the duration of the error.
+    - D: Derivative. The derivative term produces an output value that is proportional to the rate of change of the error.
+    """
+    def __init__(self, P=0.2, I=0.0, D=0.0, plot=False):
+        self.Kp = P
+        self.Ki = I
+        self.Kd = D
+        self.plot = plot
+        if self.plot:
+            self.createPlot()
+        self.current_time = time.time()
+        self.last_time = self.current_time
+        self.clear()
+        
+    def createPlot(self):
+        import matplotlib.pyplot as plt
+        self.plot_data = []
+        self.input_data = []
+        # Create one window and plot with 2 values for the plot and input
+        self.plot = plt
+        self.plot.ion()
+        self.plot.show()
+        # Show the window on top
+        self.plot.gcf().canvas.manager.window.setWindowFlags(Qt.Qt.WindowStaysOnTopHint)
+        
+    def clear(self):
+        self.SetPoint = 0.0
+        self.PTerm = 0.0
+        self.ITerm = 0.0
+        self.DTerm = 0.0
+        self.last_error = 0.0
+        self.int_error = 0.0
+        self.windup_guard = 20.0
+        self.output = 0.0
+        
+    def update(self, feedback_value, current_time=None):
+        if current_time is None:
+            current_time = time.time()
+        delta_time = current_time - self.last_time
+        delta_error = feedback_value - self.SetPoint
+        self.PTerm = self.Kp * delta_error
+        self.ITerm += delta_error * delta_time
+        if (self.ITerm < -self.windup_guard):
+            self.ITerm = -self.windup_guard
+        elif (self.ITerm > self.windup_guard):
+            self.ITerm = self.windup_guard
+        self.DTerm = 0.0
+        if delta_time > 0:
+            self.DTerm = delta_error / delta_time
+        self.last_time = current_time
+        self.last_error = feedback_value
+        self.output = self.PTerm + (self.Ki * self.ITerm) + (self.Kd * self.DTerm)
+    
+        if self.plot:
+            self.plot_data.append(self.output)
+            self.input_data.append(feedback_value)
+            # Only have 200 values
+            if len(self.plot_data) > 200:
+                self.plot_data.pop(0)
+            if len(self.input_data) > 200:
+                self.input_data.pop(0)
+                
+            self.plot.clf()
+            self.plot.plot(self.plot_data)
+            self.plot.plot(self.input_data)
+            self.plot.pause(0.0001)
+        
+    def setKp(self, proportional_gain):
+        self.Kp = proportional_gain
+        
+    def setKi(self, integral_gain):
+        self.Ki = integral_gain
+        
+    def setKd(self, derivative_gain):
+        self.Kd = derivative_gain
+        
+    def setWindup(self, windup):
+        self.windup_guard = windup
+        
+    def autoTune(self, feedback_value, current_time=None):
+        if current_time is None:
+            current_time = time.time()
+        delta_time = current_time - self.last_time
+        delta_error = feedback_value - self.SetPoint
+        self.PTerm = self.Kp * delta_error
+        self.ITerm += delta_error * delta_time
+        if (self.ITerm < -self.windup_guard):
+            self.ITerm = -self.windup_guard
+        elif (self.ITerm > self.windup_guard):
+            self.ITerm = self.windup_guard
+        self.DTerm = 0.0
+        if delta_time > 0:
+            self.DTerm = delta_error / delta_time
+        self.last_time = current_time
+        self.last_error = feedback_value
+        self.output = self.PTerm + (self.Ki * self.ITerm) + (self.Kd * self.DTerm)
+        self.Kp += self.PTerm
+        self.Ki += self.ITerm
+        self.Kd += self.DTerm
+        self.clear()

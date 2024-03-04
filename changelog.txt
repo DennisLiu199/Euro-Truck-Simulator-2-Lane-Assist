@@ -1,1 +1,11 @@
-The MSS Screen Capture now works for all plugins. BetterCamScreenCapture is still recommended and MSS is only a backup.
+.31 : 
+No longer stuck in first time setup if bettercam is not found.
+.32 : 
+Updated main menu wiki link.
+.33 : 
+Changelog tab will now close automatically after closing window.
+The app will no longer try and reinstall pyqt5.
+.34 :
+Fix importlib_metadata not being found.
+.35 : 
+Add sys back.

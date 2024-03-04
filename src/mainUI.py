@@ -23,6 +23,9 @@ import src.settings as settings
 from src.translator import Translate
 import plugins.ThemeSelector.main as themeSelector
 from tktooltip import ToolTip
+import src.server as server
+
+print_ui_events = settings.GetSettings("Dev", "print_ui_events", False)
 
 root = None
 """The root tk.Tk() window of the program."""
@@ -122,11 +125,13 @@ def switchSelectedPlugin(pluginName:str):
         if pluginName.split(".")[1] in notebookNames:
             pluginNotebook.select(notebookNames.index(pluginName.split(".")[1]))
             ui = UIs[pluginNotebook.index(pluginNotebook.select())]
+            plugin = __import__(pluginName, fromlist=["UI", "PluginInfo"])
             return
     else:
         if pluginName.split(".")[1] + "." + pluginName.split(".")[2] in notebookNames:
             pluginNotebook.select(notebookNames.index(pluginName.split(".")[1] + "." + pluginName.split(".")[2]))
             ui = UIs[pluginNotebook.index(pluginNotebook.select())]
+            plugin = __import__(pluginName, fromlist=["UI", "PluginInfo"])
             return
        
     plugin = __import__(pluginName, fromlist=["UI", "PluginInfo"])
@@ -160,9 +165,16 @@ def switchSelectedPlugin(pluginName:str):
     
     pluginNotebook.select(pluginFrames.index(pluginFrame))
     
-    print("Loaded " + pluginName)
+    if print_ui_events == True:
+        print("Loaded " + pluginName)
     
     settings.AddToList("User Interface", "OpenTabs", plugin.PluginInfo.name, exclusive=True)
+    
+    if variables.WINDOWSCALING != 100:
+        ui.root.update()
+        # Increase the ui.root size based on the scaling
+        ui.root.config(width=ui.root.winfo_width() * (variables.WINDOWSCALING / 100), height=ui.root.winfo_height() * (variables.WINDOWSCALING / 100))
+        ui.root.update()
 
 def quit():
     """Will kill the root. This means that the program will close on the next update from the mainloop.
@@ -174,6 +186,22 @@ def quit():
         root.destroy()
         del root
 
+def addCurrentToFavorites():
+    """Will add (or remove) the currently open tab from the favorites."""
+    try:
+        tabName = plugin.PluginInfo.name
+        fullPath = f"plugins.{tabName}.main"
+        # Check if the tab is already in the favorites
+        favorites = settings.GetSettings("User Interface", "Favorites", value=["plugins.MainMenu.main"])
+        if fullPath in favorites:
+            settings.RemoveFromList("User Interface", "Favorites", fullPath)
+        else:
+            settings.AddToList("User Interface", "Favorites", fullPath, exclusive=True)
+            
+        variables.RELOAD = True
+    except:
+        print("Failed to add current tab to favorites")
+
 def drawButtons(refresh:bool=False):
     """Will draw the buttons on the left menu.
 
@@ -181,61 +209,16 @@ def drawButtons(refresh:bool=False):
         refresh (bool, optional): Will create the root again. Defaults to False.
     """
     global enableButton
-    global themeButton
     
-    if refresh or pluginFrames == []:
+    if refresh:
         CreateRoot()
-    
-    try:
-        for child in pluginFrames[0].winfo_children():
-            child.destroy()
-    except:
-        pass
         
     for child in buttonFrame.winfo_children():
         child.destroy()
     
-    try:
-        # Make a label to offset the text and buttons to the center of the frame
-        helpers.MakeLabel(pluginFrames[0], "                      ", 0, 0, autoplace=True)
-        helpers.defaultAutoplaceColumn = 1
-        helpers.MakeLabel(pluginFrames[0], f"You are running ETS2LA version {str(variables.VERSION)}", 0, 1, columnspan=2, font=("Roboto", 18, "bold"), autoplace=True)
-        # date text, month, date, time, year
-        try:
-            updateTime = str(variables.LASTUPDATE).split(" ")
-            updateTime = updateTime[1:]
-            months = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "June": 6, "July": 7, "Aug": 8, "Sep": 9, "Oct":10, "Nov": 11, "Dec": 12}
-            updateTime[0] = months[updateTime[0]]
-            updateText = f"{updateTime[1]}.{updateTime[0]}.{updateTime[3]} - {updateTime[2]} "
-        except:
-            updateText = "-- Unknown --"
-        helpers.MakeLabel(pluginFrames[0], f"Released {updateText}", 0, 1, columnspan=2, pady=0, autoplace=True)
-        
-        if variables.UPDATEAVAILABLE != False:
-            helpers.MakeLabel(pluginFrames[0], "An update is available!", 0, 1, columnspan=2, fg="green", autoplace=True, tooltip=f"New version: {'.'.join(variables.UPDATEAVAILABLE)}\nRestart to update.")
-        else: 
-            helpers.MakeEmptyLine(pluginFrames[0], 0, 1, columnspan=2, autoplace=True)
-            
-        helpers.MakeButton(pluginFrames[0], "Panel Manager", lambda: switchSelectedPlugin("plugins.PanelManager.main"), 0, 1, width=20, autoplace=True)
-        helpers.MakeButton(pluginFrames[0], "Plugin Manager", lambda: switchSelectedPlugin("plugins.PluginManager.main"), 0, 2, width=20, autoplace=True)
-        helpers.MakeButton(pluginFrames[0], "First Time Setup", lambda: switchSelectedPlugin("plugins.FirstTimeSetup.main"), 0, 1, width=20, style="Accent.TButton", autoplace=True)
-        helpers.MakeButton(pluginFrames[0], "LANGUAGE - 语言设置", lambda: switchSelectedPlugin("plugins.DeepTranslator.main"), 0, 2, width=20, style="Accent.TButton", translate=False, autoplace=True)
-        helpers.MakeButton(pluginFrames[0], "Video Tutorial ↗ ", lambda: helpers.OpenInBrowser("https://www.youtube.com/watch?v=0pic0rzjvik"), 0, 1, width=20, autoplace=True, tooltip="https://www.youtube.com/watch?v=0pic0rzjvik")
-        helpers.MakeButton(pluginFrames[0], "ETS2LA Wiki ↗ ", lambda: helpers.OpenInBrowser("https://wiki.tumppi066.fi/en/LaneAssist"), 0, 2, width=20, autoplace=True, tooltip="https://wiki.tumppi066.fi/en/LaneAssist")
-        helpers.MakeEmptyLine(pluginFrames[0], 0, 1, columnspan=2, autoplace=True)
-        helpers.MakeLabel(pluginFrames[0], "You can use F5 to refresh the UI and come back to this page.\n                    (as long as the app is disabled)", 0, 1, columnspan=2, autoplace=True)
-        helpers.MakeLabel(pluginFrames[0], "The top of the app has all your currently open tabs.\n They can be closed with the middle mouse button.\n        (or right mouse button if so configured)", 0, 1, columnspan=2, autoplace=True)
-        # Make a label to show if crash reporting is enabled or disabled
-        crashReporting = settings.GetSettings("CrashReporter", "AllowCrashReports")
-        if crashReporting != None:
-            if crashReporting:
-                helpers.MakeLabel(pluginFrames[0], "Crash reporting is enabled.", 0, 1, columnspan=2, fg="green", autoplace=True, tooltip="You can disable it in the settings if you so desire.")
-            else:
-                helpers.MakeLabel(pluginFrames[0], "Crash reporting is disabled.", 0, 1, columnspan=2, fg="red", autoplace=True, tooltip="You can enable it in the settings.")
-    except:
-        import traceback
-        traceback.print_exc()
-        pass
+    for child in customButtonFrame.winfo_children():
+        child.destroy()
+    
     enableButton = helpers.MakeButton(buttonFrame, "Enable", lambda: (variables.ToggleEnable(), enableButton.config(text=("Disable" if variables.ENABLELOOP else "Enable"))), 0, 0, width=11, padx=9, style="Accent.TButton")
     helpers.MakeButton(buttonFrame, "Panels", lambda: switchSelectedPlugin("plugins.PanelManager.main"), 1, 0, width=11, padx=9)
     helpers.MakeButton(buttonFrame, "Plugins", lambda: switchSelectedPlugin("plugins.PluginManager.main"), 2, 0, width=11, padx=9)
@@ -247,6 +230,16 @@ def drawButtons(refresh:bool=False):
     import webbrowser
     helpers.MakeButton(buttonFrame, "Discord", lambda: webbrowser.open("https://discord.gg/DpJpkNpqwD"), 8, 0, width=11, padx=9, style="Accent.TButton", translate=False)
 
+    # Draw the favorites
+    helpers.MakeButton(customButtonFrame, "Add/Remove", lambda: addCurrentToFavorites(), 0, 0, width=11, padx=9, autoplace=True, style="Accent.TButton")
+    favorites = settings.GetSettings("User Interface", "Favorites", value=["plugins.MainMenu.main"])
+    for favorite in favorites:
+        name = favorite.split(".")[1]
+        name = helpers.ConvertCapitalizationToSpaces(name)
+        if len(name) > 11:
+            name = name[:10] + "..."
+        helpers.MakeButton(customButtonFrame, name, lambda favorite=favorite: switchSelectedPlugin(favorite), 0, 0, width=11, padx=9, autoplace=True)
+    
 
 prevFrame = 100
 def update(data:dict):
@@ -280,6 +273,14 @@ def update(data:dict):
             print(str(ex))
         pass
 
+    # Check if no tabs are open
+    try:
+        if pluginNotebook.index("end") == 0:
+            # Open the mainmenu
+            switchSelectedPlugin("plugins.MainMenu.main")
+    except:
+        pass
+
     try:
         root.update()
     except:
@@ -294,13 +295,30 @@ def resizeWindow(newWidth:int, newHeight:int):
     """
     global root
     global root
+    
+    if settings.GetSettings("User Interface", "ScaleWindowBasedOnWindowsSetting", value=True):
+        scaling = variables.WINDOWSCALING
+        if scaling != 100:
+            newWidth = int(newWidth * (scaling / 100))
+            newHeight = int(newHeight * (scaling / 100))
+    
     # Offsets for the new tabs
     newHeight += 20
     newWidth += 40
+    # Offset for the new favorites screen
+    newWidth += 150
+    # Offsets for fps and copyright at the bottom
+    showCopyright = settings.GetSettings("User Interface", "ShowCopyright")
+    showFps = settings.GetSettings("User Interface", "ShowFPS")
+    if showCopyright:
+        newHeight += 16
+    if showFps:
+        newHeight += 16
     
     root.geometry(f"{newWidth}x{newHeight}")
     pluginNotebook.config(width=newWidth, height=newHeight-20)
     buttonFrame.config(height=newHeight-20)
+    customButtonFrame.config(height=newHeight-20)
     root.update()
         
 def changeTheme():
@@ -352,6 +370,7 @@ def CreateRoot():
     """
     global root
     global buttonFrame
+    global customButtonFrame
     global pluginFrames
     global UIs
     global pluginNotebook
@@ -381,14 +400,14 @@ def CreateRoot():
     # the argument is the awareness level, which can be 0, 1 or 2:
     # for 1-to-1 pixel control I seem to need it to be non-zero (I'm using level 2)
     
-    try:
-        root.destroy()
-    except:
-        pass  
     
     width = 800
     height = 600
 
+    try:
+        root.destroy()
+    except:
+        pass 
     root = tk.Tk()
     
     UpdateTitle()
@@ -399,7 +418,9 @@ def CreateRoot():
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     root.iconbitmap(default="assets/favicon.ico")
 
-    root.resizable(False, False)
+    # Set the resize
+    if not settings.GetSettings("User Interface", "AllowManualResizing", value=False):
+        root.resizable(False, False)
     # Load the size and position
     position = settings.GetSettings("User Interface", "Position")
     if position == None:
@@ -444,29 +465,43 @@ def CreateRoot():
     if showFps:
         fpsLabel = ttk.Label(root, textvariable=fps, font=("Roboto", 8)).pack(side="bottom", anchor="s", padx=10, pady=0)
 
-    buttonFrame = ttk.LabelFrame(root, text="Lane Assist", width=width-675, height=height-20)
-    
+    # Button Frame
+    try:
+        buttonFrame.destroy()
+    except:
+        pass
+    buttonFrame = ttk.LabelFrame(root, text="Lane Assist", width=width-675, height=height)
     buttonFrame.pack_propagate(0)
     buttonFrame.grid_propagate(0)
     buttonFrame.pack(side="left", anchor="n", padx=10, pady=10)
+    
+    # Create the custom button frame on the right side of the window
+    try:
+        customButtonFrame.destroy()
+    except:
+        pass
+    customButtonFrame = ttk.LabelFrame(root, text="Favorites", width=width-675, height=height)
+    customButtonFrame.pack_propagate(0)
+    customButtonFrame.grid_propagate(0)
+    customButtonFrame.pack(side="right", anchor="n", padx=10, pady=10)
 
     # Create the plugin notebook
+    try:
+        pluginNotebook.destroy()
+    except:
+        pass
     pluginNotebook = ttk.Notebook(root, width=width, height=height-20)
     pluginNotebook.pack_propagate(0)
     pluginNotebook.grid_propagate(0)
-
-    # Create the page for the main menu
-    pluginFrame = ttk.Frame(pluginNotebook)
-    pluginFrames = []
-    UIs = []
-    pluginFrames.append(pluginFrame)
-    UIs.append(None)
-    pluginNotebook.add(pluginFrame, text="Main Menu")
     
     pluginNotebook.pack(side="left", anchor="n", padx=10, pady=10)
     
     # Make a callback for selecting another tab
     pluginNotebook.bind("<<NotebookTabChanged>>", lambda e: selectedOtherTab())
+    
+    # Reset the pluginFrames and UIs
+    pluginFrames = []
+    UIs = []
     
     # Bind middleclick on a tab to close it
     closeMMB = settings.GetSettings("User Interface", "CloseTabMMB")
@@ -498,13 +533,16 @@ def CreateRoot():
 
     # Bind CTRL Z to undo closing last tab
     root.bind("<Control-z>", lambda e: switchSelectedPlugin(f"plugins.{lastClosedTabName}.main"))
+    if print_ui_events == True:
+        print("Initialized UI")
 
     def Reload():
         variables.RELOAD = True
 
     # Bind F5 to drawButtons
     root.bind("<F5>", lambda e: Reload())
-    print("Initialized UI")
+    if print_ui_events == True:
+        print("Initialized UI")
     
     # Bind movement of the window to save the position
     # root.bind("<Configure>", lambda e: savePosition(e))
@@ -524,7 +562,8 @@ def CreateRoot():
         
     if settings.GetSettings("User Interface", "OpenTabs") is not None and ReopenTabs:
         for tab in settings.GetSettings("User Interface", "OpenTabs"):
-            print("Loading " + tab)
+            if print_ui_events == True:
+                print("Loading " + tab)
             try:
                 if tab == "controls" or tab == "Changelog":
                     settings.RemoveFromList("User Interface", "OpenTabs", tab)
@@ -535,6 +574,7 @@ def CreateRoot():
                 print(ex.args)
                 pass
 
-    print("Loaded previously open tabs")
-    
+    if print_ui_events == True:
+        print("Loaded previously open tabs")
+
     root.update()

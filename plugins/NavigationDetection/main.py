@@ -1,9 +1,3 @@
-"""
-This is an example of a plugin (type="dynamic"), they will be updated during the stated point in the mainloop.
-If you need to make a panel that is only updated when it's open then check the Panel example!
-"""
-
-
 from plugins.plugin import PluginInformation
 PluginInfo = PluginInformation(
     name="NavigationDetection",
@@ -23,6 +17,7 @@ from src.mainUI import resizeWindow
 import src.variables as variables
 import src.settings as settings
 import src.controls as controls
+import src.console as console
 import src.helpers as helpers
 from src.logger import print
 import src.sounds as sounds
@@ -277,6 +272,8 @@ def plugin(data):
         return data
 
     if frame is None: return data
+    if width == 0 or width == None: return data
+    if height == 0 or height == None: return data
     
     if isinstance(frame, np.ndarray) and frame.ndim == 3 and frame.size > 0:
         valid_frame = True
@@ -284,6 +281,16 @@ def plugin(data):
         valid_frame = False
         return data
     
+    if (0 <= map_topleft[0] < arrow_topleft[0] < arrow_bottomright[0] < map_bottomright[0] < data["frameFull"].shape[1]) and (0 <= map_topleft[1] < arrow_topleft[1] < arrow_bottomright[1] < map_bottomright[1] < data["frameFull"].shape[0]):
+        valid_setup = True
+    else:
+        valid_setup = False
+        return data
+    
+    if valid_setup == False:
+        print("NavigationDetection: Invalid frame or setup. Possible fix: Set the screen capture to your main monitor in your Screen Capture Plugin. Non-main monitor support coming soon.")
+        console.RestoreConsole()
+
     try:
         gamepaused = data["api"]["pause"]
         if gamepaused == True:
@@ -720,7 +727,7 @@ def plugin(data):
         if turnincoming_direction == "Right" and enabled == True:
             data["sdk"]["RightBlinker"] = False
         turnincoming_detected = False
-        tunincoming_direction = None
+        turnincoming_direction = None
 
     allow_trafficlight_symbol = True
     allow_no_lane_detected = True
@@ -1136,4 +1143,4 @@ class UI():
     except Exception as ex:
         print(ex.args)
 
-# this comment is used to reload the app after finishing the setup - 0
+# this comment is used to reload the app after finishing the setup - 1

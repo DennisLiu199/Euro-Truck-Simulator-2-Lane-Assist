@@ -6,6 +6,7 @@ The main file that runs the programs loop.
 # not have been installed yet
 
 import src.settings as settings
+from src.logger import print
 
 try:
     if "DXCamScreenCapture" in settings.GetSettings("Plugins", "Enabled"):
@@ -18,18 +19,20 @@ if settings.GetSettings("User Interface", "hide_console", False) == True:
     console.HideConsole()
 
 import os
-import pkg_resources
-listOfRequirementsAddedLater = ["colorama", "bettercam", "matplotlib", "pywebview", "vdf", "deep_translator", "babel"]
-# Check all of them
-installed = [pkg.key for pkg in pkg_resources.working_set]
+try:
+    import importlib_metadata
+except:
+    os.system("pip install importlib_metadata")
+    import importlib_metadata
+listOfRequirementsAddedLater = ["colorama", "bettercam", "matplotlib", "pywebview", "vdf", "deep-translator", "Babel", "PyQt5"]
+# Get list of installed modules using importlib
+installed = [i.name for i in importlib_metadata.distributions()]
 requirementsset = set(listOfRequirementsAddedLater)
 installedset = set(installed)
 missing = requirementsset - installedset
 
 if missing:
     for modules in missing:
-        if modules == "deep_translator": # For some reason this is always missing
-            continue
         print("installing" + " " + modules)
         os.system("pip install" + " " + modules)
 
@@ -38,16 +41,14 @@ import src.variables as variables # Stores all main variables for the program
 with open(variables.PATH + r"\requirements.txt") as f:
     requirements = f.read().splitlines()
 
-installed = [pkg.key for pkg in pkg_resources.working_set]
+installed = [i.name for i in importlib_metadata.distributions()]
 requirementsset = set(requirements)
 installedset = set(installed)
 missing = requirementsset - installedset
 
 if missing:
     for modules in missing:
-        if "deep_translator" in modules:
-            pass
-        elif "--upgrade --no-cache-dir gdown" in modules:
+        if "--upgrade --no-cache-dir gdown" in modules:
             pass
         elif "sv_ttk" in modules:
             pass
@@ -62,7 +63,6 @@ else:
 
 import requests
 def UpdateChecker():
-    print("Checking for updates...")
     currentVer = variables.VERSION.split(".")
     githubUrl = "https://raw.githubusercontent.com/Tumppi066/Euro-Truck-Simulator-2-Lane-Assist/main/"
     sourceForgeUrl = "https://sourceforge.net/p/eurotrucksimulator2-laneassist/code/ci/main/tree/"
@@ -91,15 +91,14 @@ def UpdateChecker():
     else:
         url = sourceForgeUrl
     
-    print(f"Current version: {'.'.join(currentVer)}")
-    print(f"Remote version: {'.'.join(remoteVer)}")
-    print(f"Update available: {update}")
     if update:
         if remote == "github":
             changelog = requests.get(url + "changelog.txt").text
         elif remote == "sourceforge":
             changelog = requests.get(url + "changelog.txt?format=raw").text
             
+        print(f"An update is available: {'.'.join(remoteVer)}")
+
         print(f"Changelog:\n{changelog}")
         from tkinter import messagebox
         if messagebox.askokcancel("Updater", (f"We have detected an update, do you want to install it?\nCurrent - {'.'.join(currentVer)}\nUpdated - {'.'.join(remoteVer)}\n\nChangelog:\n{changelog}")):
@@ -110,6 +109,8 @@ def UpdateChecker():
         else:
             variables.UPDATEAVAILABLE = remoteVer
             pass
+    else:
+        print(f"No update available, current version: {'.'.join(currentVer)}")
 
 try:
     devmode = settings.GetSettings("Dev", "disable_update_checker", False)
@@ -132,12 +133,12 @@ if version not in acceptedVersions:
 
 # Load the UI framework
 import src.mainUI as mainUI
+import sys
 mainUI.CreateRoot()
 
 import src.loading as loading # And then create a loading window
 
 # Load the rest of the modules
-import sys
 import time
 import json
 from src.logger import print
@@ -148,7 +149,10 @@ import src.controls as controls
 import psutil
 import cv2
 import src.scsLogReader as LogReader
-from src.server import SendCrashReport
+import src.helpers as helpers
+from src.server import SendCrashReport, Ping
+
+helpers.RunEvery(60, lambda: Ping())
 
 logger.printDebug = settings.GetSettings("logger", "debug")
 if logger.printDebug == None:
@@ -407,7 +411,8 @@ def InstallPlugins():
     # Remove the tab
     settings.RemoveFromList("Plugins", "OpenTabs", "Plugin Installer")
     variables.RELOADPLUGINS = True
-        
+    
+InstallPlugins()    
 
 def CheckForONNXRuntimeChange():
     change = settings.GetSettings("SwitchLaneDetectionDevice", "switchTo")
@@ -450,7 +455,14 @@ def LoadApplication():
     global loadingWindow
     global timesLoaded
 
-    loadingWindow = loading.LoadingWindow("Please wait initializing...")
+    try:
+        loadingWindow = loading.LoadingWindow("Please wait initializing...")
+    except:
+        try:
+            loadingWindow.destroy()
+            loadingWindow = loading.LoadingWindow("Please wait initializing...")
+        except:
+            loadingWindow = loading.LoadingWindow("Please wait initializing...", grab=False)
     
     if timesLoaded > 0:
         try:

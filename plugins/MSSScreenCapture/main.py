@@ -31,8 +31,8 @@ sct = mss.mss()
 def CreateCamera():
     global width
     global height
+    global display
     global monitor
-    global monitor_full
     
     width = settings.GetSettings("bettercam", "width")
     if width == None:
@@ -53,11 +53,16 @@ def CreateCamera():
     if y == None:
         settings.CreateSettings("bettercam", "y", 0)
         y = 0
+    
+    display = settings.GetSettings("bettercam", "display")
+    if display == None:
+        settings.CreateSettings("bettercam", "display", 0)
+        display = 0
+    display += 1
 
     left, top = x, y
     right, bottom = left + width, top + height
     monitor = (left,top,right,bottom)
-    monitor_full = (0,0,pyautogui.size().width,pyautogui.size().height)
 
 CreateCamera()
 
@@ -72,19 +77,14 @@ def onDisable():
 # The data from the last frame is contained under data["last"]
 def plugin(data):
     try:
-        # Capture full screen
-        frame = sct.grab(monitor_full)
-        # Make it so that cv2 can read it
-        frame = np.array(Image.frombytes('RGB', (monitor_full[2], monitor_full[3]), sct.grab(monitor_full).rgb)) 
-        # Convert to BGR
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        # Save the frame
+        # Capture full screen once
+        frame = cv2.cvtColor(np.array(sct.grab(sct.monitors[(display + 1)])), cv2.COLOR_BGRA2BGR)
+        # Save the full frame
         data["frameFull"] = frame
-        # Crop the frame to the selected area
-        frame = frame[monitor[1]:monitor[3], monitor[0]:monitor[2]]
-        # Save the cropped frame
-        data["frame"] = frame
-        data["frameOriginal"] = frame
+        # Crop the frame to the selected area and save
+        data["frame"] = frame[monitor[1]:monitor[3], monitor[0]:monitor[2]]
+        # Save a copy of the original cropped frame
+        data["frameOriginal"] = data["frame"].copy()
         return data
     except Exception as ex:
         print(ex)

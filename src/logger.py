@@ -119,6 +119,5 @@ def print(text:str, end:str=""):
         traceback.print_exc()
     
     
-    
 print("Logger initialized!")
         

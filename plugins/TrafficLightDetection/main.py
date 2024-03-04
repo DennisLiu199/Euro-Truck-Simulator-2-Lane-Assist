@@ -1,8 +1,3 @@
-"""
-This is an example of a plugin (type="dynamic"), they will be updated during the stated point in the mainloop.
-If you need to make a panel that is only updated when it's open then check the Panel example!
-"""
-
 from plugins.plugin import PluginInformation
 PluginInfo = PluginInformation(
     name="TrafficLightDetection",
@@ -30,15 +25,19 @@ import tkinter as tk
 import numpy as np
 import threading
 import traceback
-import pyautogui
 import socket
 import ctypes
 import math
 import time
 import cv2
+import mss
 import os
 
-screen_width, screen_height = pyautogui.size()
+sct = mss.mss()
+monitor = settings.GetSettings("bettercam", "display", 0)
+monitor = sct.monitors[(monitor + 1)]
+screen_width = monitor["width"]
+screen_height = monitor["height"]
 
 coordinates = []
 trafficlights = []
@@ -72,6 +71,7 @@ def UpdateSettings():
     global yolo_detection
     global yolo_showunconfirmed
     global yolo_model_loaded
+    global yolo_model_str
     global yolo_model
     global coordinates
     global trafficlights
@@ -143,6 +143,7 @@ def UpdateSettings():
 
     yolo_detection = settings.GetSettings("TrafficLightDetection", "yolo_detection", True)
     yolo_showunconfirmed = settings.GetSettings("TrafficLightDetection", "yolo_showunconfirmed", True)
+    yolo_model_str = settings.GetSettings("TrafficLightDetection", "yolo_model", "yolov5n") # 'yolov5n', 'yolov5s', 'yolov5m', 'yolov5l', 'yolov5x'
 
     coordinates = []
     trafficlights = []
@@ -303,7 +304,7 @@ def yolo_load_model():
         def yolo_loading_window_thread():
             global yolo_model_loaded
             global yolo_model_str
-            loading = LoadingWindow(text="TrafficLightDetection", grab=False)
+            loading = LoadingWindow(text="TrafficLightDetection", grab=False, height=83)
             loading_text = 0
             loading_textswitch = time.time() + 2
             while yolo_model_loaded == "loading...":
@@ -1329,7 +1330,7 @@ class UI():
             helpers.MakeCheckButton(trackeraiFrame, "Show unconfirmed traffic lights\n--------------------------------------------\nIf enabled, the app will show unconfirmed or wrongly detected traffic lights in gray in the output window.", "TrafficLightDetection", "yolo_showunconfirmed", 2, 0, width=100, callback=lambda:UpdateSettings())
             helpers.MakeLabel(trackeraiFrame, "YOLOv5 Model:", 4, 0, sticky="nw", font=("Segoe UI", 12))
             model_ui = tk.StringVar() 
-            previous_model_ui = settings.GetSettings("TrafficLightDetection", "yolo_model")
+            previous_model_ui = settings.GetSettings("TrafficLightDetection", "yolo_model", "yolov5n")
             if previous_model_ui == "yolov5n":
                 model_ui.set("yolov5n")
             if previous_model_ui == "yolov5s":
@@ -1356,9 +1357,9 @@ class UI():
             helpers.MakeButton(trackeraiFrame, "Save and Load Model", self.save_and_load_model, 10, 0, width=100, sticky="nw")
             helpers.MakeButton(trackeraiFrame, "Delete all downloaded models and redownload the model you are currently using.\nThis could fix faulty model files and other issues.", self.delete_and_redownload_model, 11, 0, width=100, sticky="nw")
 
-            helpers.MakeLabel(screencaptureFrame, "Simple Setup:　　　　　　　　　　　　　　　　　　　　　　　　　　　　　", 1, 0, sticky="nw", font=("Segoe UI", 12))
+            helpers.MakeLabel(screencaptureFrame, "Simple Setup:", 1, 0, sticky="nw", font=("Segoe UI", 12))
             helpers.MakeButton(screencaptureFrame, "Screen Capture Setup", self.open_screencapture_setup, 2, 0, width=40, sticky="nw")
-            helpers.MakeEmptyLine(screencaptureFrame, 3, 0)
+            helpers.MakeLabel(screencaptureFrame, "　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　", 3, 0, sticky="nw", translate=False)
             helpers.MakeLabel(screencaptureFrame, "Advanced Setup:", 4, 0, sticky="nw", font=("Segoe UI", 12))
             
             self.x1ofscSlider = tk.Scale(screencaptureFrame, from_=0, to=screen_width-1, resolution=1, orient=tk.HORIZONTAL, length=430, command=lambda x: self.UpdateSliderValue_x1ofsc())
@@ -1393,7 +1394,9 @@ class UI():
                 y1_preview = self.y1ofscSlider.get()
                 x2_preview = self.x2ofscSlider.get()
                 y2_preview = self.y2ofscSlider.get()
-                screenshot = cv2.cvtColor(np.array(pyautogui.screenshot(region=(x1_preview, y1_preview, x2_preview - x1_preview, y2_preview - y1_preview))), cv2.COLOR_RGB2BGR)
+                monitor = settings.GetSettings("bettercam", "display", 0)
+                scrrenshot = cv2.cvtColor(np.array(sct.grab(sct.monitors[(monitor + 1)])), cv2.COLOR_BGRA2BGR)
+                screenshot = scrrenshot[y1_preview:y2_preview, x1_preview:x2_preview]
                 cv2.namedWindow('Screen Capture Preview', cv2.WINDOW_NORMAL)
                 cv2.setWindowProperty('Screen Capture Preview', cv2.WND_PROP_TOPMOST, 1)
                 cv2.resizeWindow('Screen Capture Preview', round((x2_preview-x1_preview)/2), round((y2_preview-y1_preview)/2))

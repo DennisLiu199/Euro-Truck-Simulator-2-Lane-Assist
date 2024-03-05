@@ -18,9 +18,6 @@ PluginInfo = PluginInformation(
     noUI=True
 )
 
-# TODO: We could maybe use the direction the road is moving to rotate the prefabs the correct way?
-#       Right now there are problems...
-
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -32,6 +29,7 @@ import os
 import random
 import time
 import keyboard
+import mouse
 
 from plugins.Map.GameData import roads, nodes, prefabs, prefabItems
 from plugins.Map.Visualize import visualize
@@ -50,6 +48,31 @@ VISUALIZE_PREFABS = True
 framesSinceChange = 0
 def plugin(data):
     global framesSinceChange
+    global ZOOM
+    
+    # Bind the mouse scroll wheel to zoom
+    if mouse.is_pressed("scroll_up"):
+        ZOOM += 1
+        print(f"ZOOM: {ZOOM}")
+        time.sleep(0.2)
+    if mouse.is_pressed("scroll_down"):
+        ZOOM -= 1
+        print(f"ZOOM: {ZOOM}")
+        time.sleep(0.2)
+    # Also ctrl + up and down
+    if keyboard.is_pressed("ctrl") and keyboard.is_pressed("up"):
+        ZOOM += 1
+        print(f"ZOOM: {ZOOM}")
+        time.sleep(0.2)
+    if keyboard.is_pressed("ctrl") and keyboard.is_pressed("down"):
+        ZOOM -= 1
+        print(f"ZOOM: {ZOOM}")
+        time.sleep(0.2)
+    
+    if ZOOM < 1:
+        ZOOM = 1
+        
+        
     # Check if the GameData folder has it's json files
     filesInGameData = os.listdir(variables.PATH + "/plugins/Map/GameData")
     hasJson = False

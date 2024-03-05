@@ -386,10 +386,10 @@ def CalculateParallelCurves(road):
         roadSizeLeft = lanesLeft * LANE_WIDTH
         roadSizeRight = lanesRight * LANE_WIDTH
           
-        if road.RoadLook.shoulderSpaceLeft != 0:
-            roadSizeLeft += road.RoadLook.shoulderSpaceLeft
-        if road.RoadLook.shoulderSpaceRight != 0:
-            roadSizeRight += road.RoadLook.shoulderSpaceRight
+        #if road.RoadLook.shoulderSpaceLeft != 0:
+        #    roadSizeLeft += road.RoadLook.shoulderSpaceLeft
+        #if road.RoadLook.shoulderSpaceRight != 0:
+        #    roadSizeRight += road.RoadLook.shoulderSpaceRight
 
         # Calculate lane width
         totalRoadWidth = roadSizeRight + roadSizeLeft # + road.RoadLook.offset
@@ -431,16 +431,15 @@ def CalculateParallelCurves(road):
             # Calculate the offset for each lane
             laneOffsetsLeft = np.arange(-lanesLeft - 1, -1) * laneWidth
             laneOffsetsRight = np.arange(1, lanesRight + 1) * laneWidth
-
+            
             # Calculate the new points for each lane
             counter = 0
             for laneOffset in laneOffsetsLeft:
-                
                 if laneOffset == 0:
                     continue
                 
                 if lanesRight > 0:
-                    # laneOffset += road.RoadLook.offset / 2
+                    #laneOffset -= road.RoadLook.offset / 2
                     if road.Type != "Prefab":
                         laneOffset += laneWidth
                     else:
@@ -469,7 +468,7 @@ def CalculateParallelCurves(road):
                     continue
                 
                 if lanesLeft > 0:
-                    # laneOffset -= road.RoadLook.offset / 2
+                    #laneOffset += road.RoadLook.offset / 2
                     if road.Type != "Prefab":
                         laneOffset -= laneWidth
                     else:

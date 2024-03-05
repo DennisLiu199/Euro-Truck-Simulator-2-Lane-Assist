@@ -9,6 +9,8 @@ import sys
 import plugins.Map.GameData.nodes as nodes
 import math
 
+ROAD_QUALITY = 12
+
 class Road():
     Uid = 0
     StartNodeUid = 0
@@ -48,6 +50,11 @@ class RoadLook():
 
 
 roads = []
+"""
+All roads in the game. 
+WARNING: This array does not get updated, since it is so large. Please use the uidOptimizedRoads or optimizedRoads arrays instead.
+"""
+
 optimizedRoads = {}
 uidOptimizedRoads = {}
 roadFileName = variables.PATH + "/plugins/Map/GameData/roads.json"
@@ -127,13 +134,15 @@ def CreatePointsForRoad(road):
     tanSz = math.sin(-(math.pi * 0.5 - road.StartNode.Rotation)) * radius
     tanEz = math.sin(-(math.pi * 0.5 - road.EndNode.Rotation)) * radius
 
-    for i in range(8):
-        s = i / (8 - 1)
+    for i in range(ROAD_QUALITY):
+        s = i / (ROAD_QUALITY - 1)
         x = Hermite(s, sx, ex, tanSx, tanEx)
         z = Hermite(s, sz, ez, tanSz, tanEz)
         newPoints.append((x, z))
 
     road.Points = newPoints
+    
+    return newPoints
 
 def LoadRoads():
     global roadsMaxX
@@ -330,34 +339,52 @@ def GetRoadByUid(uid):
     
     return None
 
-def SetRoadParallelDataByUid(uid, parallelPoints, laneWidth, boundingBox):
+def SetRoadParallelData(road, parallelPoints, laneWidth, boundingBox):
     # Find the road by the UID
-    for road in uidOptimizedRoads[int(str(uid)[:3])]:
-        if road.Uid == uid:
-            road.ParallelPoints = parallelPoints
-            road.LaneWidth = laneWidth
-            road.BoundingBox = boundingBox
+    for arrayRoad in uidOptimizedRoads[int(str(road.Uid)[:3])]:
+        if arrayRoad.Uid == road.Uid:
+            arrayRoad.ParallelPoints = parallelPoints
+            arrayRoad.LaneWidth = laneWidth
+            arrayRoad.BoundingBox = boundingBox
+            
+    # Get the area the road should be in from the START node
+    x = math.floor((road.StartNode.X - roadsMinX) / 1000)
+    z = math.floor((road.StartNode.Z - roadsMinZ) / 1000)
     
-    # Same for the roads array
-    for road in roads:
-        if road.Uid == uid:
-            road.ParallelPoints = parallelPoints
-            road.LaneWidth = laneWidth
-            road.BoundingBox = boundingBox
+    # Update the optimized array
+    for arrayRoad in optimizedRoads[x][z]:
+        if arrayRoad.Uid == road.Uid:
+            arrayRoad.ParallelPoints = parallelPoints
+            arrayRoad.LaneWidth = laneWidth
+            arrayRoad.BoundingBox = boundingBox
+    
+
+def SetRoadPoints(road, points):
+    # Find the road by the UID
+    for arrayRoad in uidOptimizedRoads[int(str(road.Uid)[:3])]:
+        if arrayRoad.Uid == road.Uid:
+            arrayRoad.Points = points
+            
+    # Get the area the road should be in from the START node
+    x = math.floor((road.StartNode.X - roadsMinX) / 1000)
+    z = math.floor((road.StartNode.Z - roadsMinZ) / 1000)
+    
+    # Update the optimized array
+    for arrayRoad in optimizedRoads[x][z]:
+        if arrayRoad.Uid == road.Uid:
+            arrayRoad.Points = points
 
 def CalculateParallelCurves(road):
     import numpy as np
     try:
         points = road.Points
         lanesLeft = len(road.RoadLook.lanesLeft)
-        lanesRight = len(road.RoadLook.lanesLeft)
+        lanesRight = len(road.RoadLook.lanesRight)
         
-        # if road.RoadLook.roadSizeLeft != 999:
-        #     roadSizeLeft = road.RoadLook.roadSizeLeft
-        #     roadSizeRight = road.RoadLook.roadSizeRight
-        # else:
-        roadSizeLeft = lanesLeft * 4.5
-        roadSizeRight = lanesRight * 4.5
+        LANE_WIDTH = 4.5
+
+        roadSizeLeft = lanesLeft * LANE_WIDTH
+        roadSizeRight = lanesRight * LANE_WIDTH
           
         if road.RoadLook.shoulderSpaceLeft != 0:
             roadSizeLeft += road.RoadLook.shoulderSpaceLeft
@@ -376,8 +403,12 @@ def CalculateParallelCurves(road):
 
         pointCounter = 0
         for point in points:
-            x = point[0]
-            y = point[1]
+            try:
+                x = point[0]
+                y = point[1]
+            except:
+                newPoints.append([])
+                continue
 
             # Calculate the tangent vector at the point
             tangentVector = np.array([0, 0])
@@ -420,7 +451,10 @@ def CalculateParallelCurves(road):
                 newPoints.append([])
                 offsetVector = laneOffset * normalVector
 
-                newPoint = np.array([x, y]) + offsetVector.T + laneWidth / 2 * normalVector.T
+                if lanesLeft >= 1 and lanesRight == 0:
+                    newPoint = np.array([x, y]) + offsetVector.T - LANE_WIDTH * (0.5 * lanesLeft) * normalVector.T
+                else:
+                    newPoint = np.array([x, y]) + offsetVector.T + LANE_WIDTH / (2+(lanesLeft-1)) * normalVector.T
 
                 # Apply the offset to the road (how much space is in the middle, between the two sides of the road)
                 offsetVector = road.RoadLook.offset * normalVector
@@ -445,9 +479,12 @@ def CalculateParallelCurves(road):
                 
                 
                 newPoints.append([])
-                offsetVector = laneOffset * normalVector + laneWidth / 2 * normalVector.T
+                offsetVector = laneOffset * normalVector
 
-                newPoint = np.array([x, y]) + offsetVector.T
+                if lanesRight >= 1 and lanesLeft == 0:
+                    newPoint= np.array([x, y]) + offsetVector.T - LANE_WIDTH * (0.5 * lanesRight) * normalVector.T
+                else:
+                    newPoint = np.array([x, y]) + offsetVector.T + LANE_WIDTH / (2+(lanesRight-1)) * normalVector.T
             
                 # Apply the offset to the road (how much space is in the middle, between the two sides of the road)
                 offsetVector = road.RoadLook.offset * normalVector
@@ -472,6 +509,19 @@ def CalculateParallelCurves(road):
                 if point[1] > boundingBox[3]:
                     boundingBox[3] = point[1]
         
+        # Print all the relevant info if newPoints = [], since that means something went wrong
+        if newPoints == []:
+            print(f"Road {road.Uid} has no newPoints")
+            print(f"lanesLeft: {lanesLeft}")
+            print(f"lanesRight: {lanesRight}")
+            print(f"roadSizeLeft: {roadSizeLeft}")
+            print(f"roadSizeRight: {roadSizeRight}")
+            print(f"laneWidth: {laneWidth}")
+            print(f"road.RoadLook.offset: {road.RoadLook.offset}")
+            print(f"road.RoadLook.shoulderSpaceLeft: {road.RoadLook.shoulderSpaceLeft}")
+            print(f"road.RoadLook.shoulderSpaceRight: {road.RoadLook.shoulderSpaceRight}")
+            print(f"pointCounter: {pointCounter}")
+            
         return boundingBox, newPoints, laneWidth
         
     except Exception as ex:

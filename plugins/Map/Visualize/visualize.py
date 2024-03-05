@@ -102,6 +102,9 @@ def VisualizeRoads(data, img=None, zoom=2):
                     # Offset the zoomed coordinates by the truck's position to "move" the camera
                     pointX = int(zoomedX + size//2)
                     pointY = int(zoomedY + size//2)
+                    # Check if the points are within the display area (1000px x 1000px)
+                    if pointX < 0 or pointX > 1000 or pointY < 0 or pointY > 1000:
+                        continue
                     newPoints.append((pointX, pointY))
             
                 cv2.polylines(img, np.int32([newPoints]), False, (150, 150, 150), (2 + (zoom - 1)), cv2.LINE_AA)

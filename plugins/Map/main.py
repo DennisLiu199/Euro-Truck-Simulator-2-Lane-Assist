@@ -39,10 +39,10 @@ from plugins.Map.Visualize import visualize
 import cv2
 from PIL import Image
 
-useInternalVisualization = True
-useExternalVisualization = True
-zoom = 2 # How many pixels per meter
-visualizePrefabs = True
+USE_INTERNAL_VISUALIZATION = True
+USE_EXTERNAL_VISUALIZATION = False
+ZOOM = 2 # How many pixels per meter
+VISUALIZE_PREFABS = True
 
 # The main file runs the "plugin" function each time the plugin is called
 # The data variable contains the data from the mainloop, plugins can freely add and modify data as needed
@@ -76,12 +76,12 @@ def plugin(data):
         nodes.LoadNodes()
         
     if roads.roads == []:
-        # roads.limitToCount = 10000
+        roads.limitToCount = 10000
         roads.LoadRoads()
-    if prefabs.prefabs == [] and visualizePrefabs:
-        # prefabs.limitToCount = 500
+    if prefabs.prefabs == [] and VISUALIZE_PREFABS:
+        prefabs.limitToCount = 500
         prefabs.LoadPrefabs() 
-    if prefabItems.prefabItems == [] and visualizePrefabs:
+    if prefabItems.prefabItems == [] and VISUALIZE_PREFABS:
         prefabItems.LoadPrefabItems()
     
     if startPlugin != "":
@@ -89,16 +89,16 @@ def plugin(data):
     
     
     
-    if useInternalVisualization:
-        img = visualize.VisualizeRoads(data, zoom=zoom)
-        if visualizePrefabs:
-            img = visualize.VisualizePrefabs(data, img=img, zoom=zoom)
+    if USE_INTERNAL_VISUALIZATION:
+        img = visualize.VisualizeRoads(data, zoom=ZOOM)
+        if VISUALIZE_PREFABS:
+            img = visualize.VisualizePrefabs(data, img=img, zoom=ZOOM)
         cv2.namedWindow("Roads", cv2.WINDOW_NORMAL)
         cv2.imshow("Roads", img)
         cv2.resizeWindow("Roads", 1000, 1000)
         cv2.waitKey(1)
     
-    if useExternalVisualization:
+    if USE_EXTERNAL_VISUALIZATION:
         x = data["api"]["truckPlacement"]["coordinateX"]
         y = -data["api"]["truckPlacement"]["coordinateZ"]
         

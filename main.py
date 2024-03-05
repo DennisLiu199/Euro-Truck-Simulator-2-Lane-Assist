@@ -326,6 +326,7 @@ def InstallPlugins():
     
     try:
         loadingWindow.destroy()
+        del loadingWindow
     except:
         pass
     

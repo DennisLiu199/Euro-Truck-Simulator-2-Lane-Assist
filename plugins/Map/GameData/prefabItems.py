@@ -195,7 +195,11 @@ def LoadPrefabItems():
         for nav in prefabItem.Navigation:
             for item in nav.Item2:
                 if item.Type == "Road":
-                    road = roads.GetRoadByUid(item.Uid)
+                    try:
+                        road = roads.GetRoadByUid(item.Uid)
+                    except:
+                        road = None
+                        
                     if road != None:
                         road.ConnectedPrefabItems.append(prefabItem.Uid)
                         # print(f"Added prefab item {prefabItem.Uid} to road {road.Uid}")

@@ -89,17 +89,21 @@ def VisualizeRoads(data, img=None, zoom=2):
                     newPoints.append((pointX, pointY))
             
                 cv2.polylines(img, np.int32([newPoints]), False, (150, 150, 150), (2 + (zoom - 1)), cv2.LINE_AA)
-            # for point in road.Points:
-            #     xy = roads.GetLocalCoordinateInTile(point[0], point[1], tileCoords[0], tileCoords[1])
-            #     truckXY = roads.GetLocalCoordinateInTile(x, y, tileCoords[0], tileCoords[1])
-            #     xy = (xy[0] - truckXY[0], xy[1] - truckXY[1])
-            #     # Apply zoom to the local coordinates
-            #     zoomedX = xy[0] * zoom
-            #     zoomedY = xy[1] * zoom
-            #     # Offset the zoomed coordinates by the truck's position to "move" the camera
-            #     pointX = int(zoomedX + size//2)
-            #     pointY = int(zoomedY + size//2)
-            #     newPoints.append((pointX, pointY))
+            
+            newPoints = []
+            for point in road.Points:
+                xy = roads.GetLocalCoordinateInTile(point[0], point[1], tileCoords[0], tileCoords[1])
+                truckXY = roads.GetLocalCoordinateInTile(x, y, tileCoords[0], tileCoords[1])
+                xy = (xy[0] - truckXY[0], xy[1] - truckXY[1])
+                # Apply zoom to the local coordinates
+                zoomedX = xy[0] * zoom
+                zoomedY = xy[1] * zoom
+                # Offset the zoomed coordinates by the truck's position to "move" the camera
+                pointX = int(zoomedX + size//2)
+                pointY = int(zoomedY + size//2)
+                newPoints.append((pointX, pointY))
+            
+            cv2.polylines(img, np.int32([newPoints]), False, (0, 100, 150), (1 + (zoom - 1)), cv2.LINE_AA)
             
             # Draw a line from the start to the end
             road = None

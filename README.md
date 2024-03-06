@@ -3,10 +3,13 @@
 # ETS2LA
 Lane assist and plugin based interface program for SCS truck simulators.
 
-![](https://img.shields.io/sourceforge/dw/EuroTruckSimulator2-LaneAssist?style=for-the-badge&logo=sourceforge)
-![](https://img.shields.io/discord/1120719484982939790?style=for-the-badge&logo=discord)
-![](https://img.shields.io/github/commit-activity/m/Tumppi066/Euro-Truck-Simulator-2-Lane-Assist?style=for-the-badge&logo=Github)
+<img alt="SourceForge Downloads" src="https://img.shields.io/sourceforge/dt/eurotrucksimulator2-laneassist?style=for-the-badge&logo=Sourceforge&label=SourceForge%20Downloads">
+<img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/Tumppi066/Euro-Truck-Simulator-2-Lane-Assist/total?style=for-the-badge&logo=Github&label=Github%20Downloads">
+<img alt="GitHub commits" src="https://img.shields.io/github/commit-activity/m/Tumppi066/Euro-Truck-Simulator-2-Lane-Assist?style=for-the-badge&logo=Github">
+<img alt="GitHub stars" src="https://img.shields.io/github/stars/Tumppi066/Euro-Truck-Simulator-2-Lane-Assist?style=for-the-badge&logo=github&label=Github%20Stars">
+<img alt="Discord" src="https://img.shields.io/discord/1120719484982939790?style=for-the-badge&logo=discord">
 
+<img alt="SourceForge Rising Star" style="width:20%" src="https://sourceforge.net/cdn/syndication/badge_img/3718449/oss-rising-star-white?achievement=oss-rising-star&r=https://sourceforge.net/p/eurotrucksimulator2-laneassist/admin/files-sf/badges">
 
 ### Links
 

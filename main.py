@@ -516,6 +516,8 @@ def LoadApplication():
     CheckLastKnownVersion()
     # Show the root window
     mainUI.root.deiconify()
+    
+    helpers.ShowPopup("\nFound " + str(len(GetListOfAllPluginAndPanelNames())) + " plugins!", "Backend", timeout=3)
 
 LoadApplication()
 
@@ -553,6 +555,7 @@ def CheckForFileChanges():
 data = {}
 uiFrameTimer = 0
 pluginChangeTimer = time.time()
+lastEnableValue = False
 if __name__ == "__main__":
     while True:
         # Main Application Loop
@@ -620,6 +623,32 @@ if __name__ == "__main__":
                 FindPlugins()
                 variables.UPDATEPLUGINS = False
                 
+            for runner in helpers.runners:
+                # [duration, function, time.time(), args, kwargs]
+                duration, function, lastRun, args, kwargs = runner
+                if time.time() - lastRun > duration:
+                    try:
+                        function(*args, **kwargs)
+                    except Exception as ex:
+                        print(ex.args)
+                    
+                    helpers.runners.remove(runner)
+                
+            popupCount = 0
+            for popup in helpers.popups:
+                try:
+                    popup.update(popupCount)
+                    popupCount += 1
+                except:
+                    try:
+                        popup.destroy()
+                    except:
+                        pass
+                    helpers.popups.remove(popup)
+            
+            if variables.ENABLELOOP != lastEnableValue:
+                lastEnableValue = variables.ENABLELOOP
+                helpers.ShowPopup("\nThe main loop is now " + ("enabled" if variables.ENABLELOOP else "disabled") + "!", "Backend", timeout=2)
                 
             # Enable / Disable the main loop
             if variables.ENABLELOOP == False:

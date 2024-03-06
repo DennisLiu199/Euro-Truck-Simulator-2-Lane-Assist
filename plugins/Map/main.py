@@ -39,7 +39,7 @@ from PIL import Image
 
 USE_INTERNAL_VISUALIZATION = True
 USE_EXTERNAL_VISUALIZATION = False
-ZOOM = 2 # How many pixels per meter
+ZOOM = 8 # How many pixels per meter
 VISUALIZE_PREFABS = True
 
 # The main file runs the "plugin" function each time the plugin is called
@@ -99,10 +99,10 @@ def plugin(data):
         nodes.LoadNodes()
         
     if roads.roads == []:
-        #roads.limitToCount = 10000
+        roads.limitToCount = 1
         roads.LoadRoads()
     if prefabs.prefabs == [] and VISUALIZE_PREFABS:
-        #prefabs.limitToCount = 500
+        prefabs.limitToCount = 1
         prefabs.LoadPrefabs() 
     if prefabItems.prefabItems == [] and VISUALIZE_PREFABS:
         prefabItems.LoadPrefabItems()
@@ -116,9 +116,13 @@ def plugin(data):
         img = visualize.VisualizeRoads(data, zoom=ZOOM)
         if VISUALIZE_PREFABS:
             img = visualize.VisualizePrefabs(data, img=img, zoom=ZOOM)
+            
+        img = visualize.VisualizeTruck(data, img=img, zoom=ZOOM)
         cv2.namedWindow("Roads", cv2.WINDOW_NORMAL)
+        # Make it stay on top
+        cv2.setWindowProperty("Roads", cv2.WND_PROP_TOPMOST, 1)
         cv2.imshow("Roads", img)
-        cv2.resizeWindow("Roads", 1000, 1000)
+        # cv2.resizeWindow("Roads", 1000, 1000)
         cv2.waitKey(1)
     
     if USE_EXTERNAL_VISUALIZATION:

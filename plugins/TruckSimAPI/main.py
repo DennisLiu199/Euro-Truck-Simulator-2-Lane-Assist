@@ -31,6 +31,7 @@ from plugins.TruckSimAPI.scsPlugin import scsTelemetry
 # The data variable contains the data from the mainloop, plugins can freely add and modify data as needed
 # The data from the last frame is contained under data["last"]
 API = None
+DETECT_TRAILERS = True
 lastX = 0
 lastY = 0
 isConnected = False
@@ -46,7 +47,7 @@ def plugin(data):
         print("Error checking API status")
         return data
     
-    apiData = API.update()    
+    apiData = API.update(trailerData=DETECT_TRAILERS)    
     data["api"] = apiData
     
     # Calculate the current driving angle based on this and last frames coordinates
@@ -87,7 +88,7 @@ def checkAPI():
     if API == None:
         API = scsTelemetry()
         
-    data = API.update()
+    data = API.update(trailerData=DETECT_TRAILERS)
     
     if data["scsValues"]["telemetryPluginRevision"] < 2:
         loading = LoadingWindow("Waiting for ETS2 connection...")
@@ -111,7 +112,7 @@ def onEnable():
     if API == None:
         API = scsTelemetry()
     
-    data = API.update()
+    data = API.update(trailerData=DETECT_TRAILERS)
     
     print("Plugin version: " + str(data["scsValues"]["telemetryPluginRevision"]))
     

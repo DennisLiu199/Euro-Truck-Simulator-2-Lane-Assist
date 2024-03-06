@@ -262,8 +262,7 @@ def UpdatePlugins(dynamicOrder, data):
                 data["executionTimes"][plugin.PluginInfo.name] = endTime - startTime
                         
         except Exception as ex:
-            print(ex.args + f"[{plugin.PluginInfo.name}]")
-            pass
+            raise ex
     return data
 
 def GetListOfAllPluginAndPanelNames():

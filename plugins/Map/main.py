@@ -89,6 +89,9 @@ def plugin(data):
     
     startPlugin = ""
     if nodes.nodes == []:
+        # Clear the popups
+        helpers.ClearPopups()
+        
         try:
             startPlugin = f"plugins.{mainUI.plugin.PluginInfo.name}.main"
         except:
@@ -99,10 +102,10 @@ def plugin(data):
         nodes.LoadNodes()
         
     if roads.roads == []:
-        roads.limitToCount = 1
+        roads.limitToCount = 10000
         roads.LoadRoads()
     if prefabs.prefabs == [] and VISUALIZE_PREFABS:
-        prefabs.limitToCount = 1
+        prefabs.limitToCount = 500
         prefabs.LoadPrefabs() 
     if prefabItems.prefabItems == [] and VISUALIZE_PREFABS:
         prefabItems.LoadPrefabItems()

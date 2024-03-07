@@ -624,3 +624,12 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4):
             
     popups.append(popup(root, text, title, type, timeout))
     return popups[-1]
+
+def ClearPopups():
+    """Will close all popups."""
+    global popups
+    for i in popups:
+        i.close()
+    popups = []
+    
+    mainUI.root.update()

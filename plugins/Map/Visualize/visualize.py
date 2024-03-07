@@ -188,6 +188,23 @@ def VisualizePrefabs(data, img=None, zoom=2):
     
     return img
 
+def RotateAroundCenter(point, center, angle):
+    """Rotate a point around a center point.
+
+    Args:
+        point (tuple): Point to rotate.
+        center (tuple): Center point.
+        angle (float): Angle in radians.
+
+    Returns:
+        tuple: Rotated point.
+    """
+    pointX = point[0] - center[0]
+    pointY = point[1] - center[1]
+    newx = pointX * math.cos(angle) - pointY * math.sin(angle)
+    newy = pointX * math.sin(angle) + pointY * math.cos(angle)
+    return (int(newx + center[0]), int(newy + center[1]))
+
 def VisualizeTruck(data, img=None, zoom=2):
     """Will draw the truck onto the image.
 
@@ -210,9 +227,9 @@ def VisualizeTruck(data, img=None, zoom=2):
     else:
         size = img.shape[0]
     
-    truckXY = roads.GetLocalCoordinateInTile(x, y, 0, 0)
     
     tileXY = roads.GetTileCoordinates(x, y)
+    truckXY = roads.GetLocalCoordinateInTile(x, y, tileXY[0], tileXY[1])
     
     # Get the truck wheel positions
     truckWheelPoints = [[i for i in data["api"]["configVector"]["truckWheelPositionX"]], [i for i in data["api"]["configVector"]["truckWheelPositionZ"]]]
@@ -221,7 +238,6 @@ def VisualizeTruck(data, img=None, zoom=2):
     minX = 10000
     minY = 10000
     for i in range(len(truckWheelPoints[0])):
-        # Points are offsets of the center of the truck
         point = (truckWheelPoints[0][i], truckWheelPoints[1][i])
         # Apply zoom to the local coordinates
         zoomedX = point[0] * zoom
@@ -249,43 +265,45 @@ def VisualizeTruck(data, img=None, zoom=2):
             
     # Rotate the points around the middle of the screen
     center = (size//2, size//2)
-    angle = rotationX * 180
-    angle = math.radians(angle)
+    angle = rotationX * 360
+    if angle < 0:
+        angle = 360 + angle
+    angle = -math.radians(angle)
     rotatedPoints = []
     for point in [point1, point2, point3, point4]:
-        pointX = point[0] - center[0]
-        pointY = point[1] - center[1]
-        newx = pointX * math.cos(angle) - pointY * math.sin(angle)
-        newy = pointX * math.sin(angle) + pointY * math.cos(angle)
-        point = (int(newx + center[0]), int(newy + center[1]))
-        rotatedPoints.append(point)
+        rotatedPoints.append(RotateAroundCenter(point, center, angle))
             
     # Draw the truck (can't use rectangle because it doesn't support rotation)
     cv2.line(img, rotatedPoints[0], rotatedPoints[2], (0, 255, 0), 1)
     cv2.line(img, rotatedPoints[2], rotatedPoints[1], (0, 255, 0), 1)
     cv2.line(img, rotatedPoints[1], rotatedPoints[3], (0, 255, 0), 1)
     cv2.line(img, rotatedPoints[3], rotatedPoints[0], (0, 255, 0), 1)
+    # Diagonal  
+    cv2.line(img, rotatedPoints[0], rotatedPoints[1], (0, 255, 0), 1)
     
      
     # Draw the trailers
     trailers = data["api"]["trailers"]
     for i in range(len(trailers)):
-        trailerXY = (trailers[i]["comDouble"]["worldX"], trailers[i]["comDouble"]["worldZ"])
+        trailerXY = roads.GetLocalCoordinateInTile(trailers[i]["comDouble"]["worldX"], trailers[i]["comDouble"]["worldZ"], tileXY[0], tileXY[1])
+        trailerX = int((trailerXY[0] - truckXY[0]) * zoom + size//2)
+        trailerY = int((trailerXY[1] - truckXY[1]) * zoom + size//2)
         trailerWheelPoints = [[i for i in trailers[i]["conVector"]["wheelPositionX"]], [i for i in trailers[i]["conVector"]["wheelPositionZ"]]]
-        trailerScreenPosition = ((trailerXY[0] - x)*zoom+size/2, (trailerXY[1] - y)*zoom+size/2)
         maxX = 0
         maxY = 0
         minX = 10000
         minY = 10000
-        for z in range(len(trailerWheelPoints[0])):
-            point = (trailerWheelPoints[0][z], trailerWheelPoints[1][z])
+        for z in range(len(trailerWheelPoints[0]) + 1):
+            if z == len(trailerWheelPoints[0]):
+                point = (trailers[i]["conVector"]["hookPositionX"], trailers[i]["conVector"]["hookPositionZ"])
+            else:
+                point = (trailerWheelPoints[0][z], trailerWheelPoints[1][z])
             # Apply zoom to the local coordinates
             zoomedX = point[0] * zoom
             zoomedY = point[1] * zoom
             # Center the truck in the image
-            pointX = int(zoomedX + trailerScreenPosition[0])
-            pointY = int(zoomedY + trailerScreenPosition[1])
-            print(f"Trailer wheel point: {pointX}, {pointY}")
+            pointX = int(zoomedX + trailerX)
+            pointY = int(zoomedY + trailerY)
             # Calculate the bounding box
             if pointX > maxX:
                 maxX = pointX
@@ -306,22 +324,21 @@ def VisualizeTruck(data, img=None, zoom=2):
         rotationX = trailers[i]["comDouble"]["rotationX"]
         
         # Rotate the points around the middle of the screen
-        trailerCenter = trailerScreenPosition
-        angle = rotationX * 180
-        angle = math.radians(angle)
+        trailerCenter = (trailerX, trailerY)
+        angle = rotationX * 360
+        if angle < 0:
+            angle = 360 + angle
+        angle = -math.radians(angle)
         rotatedPoints = []
         for point in [point1, point2, point3, point4]:
-            pointX = point[0] - trailerCenter[0]
-            pointY = point[1] - trailerCenter[1]
-            newx = pointX * math.cos(angle) - pointY * math.sin(angle)
-            newy = pointX * math.sin(angle) + pointY * math.cos(angle)
-            point = (int(newx + trailerCenter[0]), int(newy + trailerCenter[1]))
-            rotatedPoints.append(point)
+            rotatedPoints.append(RotateAroundCenter(point, trailerCenter, angle))
         
         # Draw the trailer (can't use rectangle because it doesn't support rotation)
         cv2.line(img, rotatedPoints[0], rotatedPoints[2], (0, 255, 0), 1)
         cv2.line(img, rotatedPoints[2], rotatedPoints[1], (0, 255, 0), 1)
         cv2.line(img, rotatedPoints[1], rotatedPoints[3], (0, 255, 0), 1)
         cv2.line(img, rotatedPoints[3], rotatedPoints[0], (0, 255, 0), 1)
+        # Diagonal in the opposite dir as the truck
+        cv2.line(img, rotatedPoints[2], rotatedPoints[3], (0, 255, 0), 1)
         
     return img

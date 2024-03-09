@@ -342,3 +342,54 @@ def VisualizeTruck(data, img=None, zoom=2):
         cv2.line(img, rotatedPoints[2], rotatedPoints[3], (0, 255, 0), 1)
         
     return img
+
+
+def VisualizeTrafficLights(data, img=None, zoom=2):
+    if img is None:
+        size = 1000
+        img = np.zeros((size, size, 3), np.uint8)
+    else:
+        size = img.shape[0]
+        
+    try:
+        trafficlights = data["TrafficLightDetection"]["detailed"]
+    except:
+        trafficlights = []
+    for i in range(len(trafficlights)):
+        _, ((trafficlight_x, trafficlight_z), (head_x, head_z, head_angle, head_rotation), (firsttrafficlight_x, firsttrafficlight_z, first_head_angle, first_head_rotation)), _, _ = trafficlights[i]
+        x = data["api"]["truckPlacement"]["coordinateX"]
+        y = data["api"]["truckPlacement"]["coordinateZ"]
+        tileCoords = roads.GetTileCoordinates(x, y)
+        truckXY = roads.GetLocalCoordinateInTile(x, y, tileCoords[0], tileCoords[1])
+        try:
+            xy = roads.GetLocalCoordinateInTile(firsttrafficlight_x, firsttrafficlight_z, tileCoords[0], tileCoords[1])
+            xy = (xy[0] - truckXY[0], xy[1] - truckXY[1])
+            zoomedX = xy[0] * zoom
+            zoomedY = xy[1] * zoom
+            pointX = int(zoomedX + size//2)
+            pointY = int(zoomedY + size//2)
+            cv2.circle(img, (pointX, pointY), 5, (0, 255, 0), -1, cv2.LINE_AA)
+        except:
+            pass
+        try:
+            xy = roads.GetLocalCoordinateInTile(head_x, head_z, tileCoords[0], tileCoords[1])
+            xy = (xy[0] - truckXY[0], xy[1] - truckXY[1])
+            zoomedX = xy[0] * zoom
+            zoomedY = xy[1] * zoom
+            pointX = int(zoomedX + size//2)
+            pointY = int(zoomedY + size//2)
+            cv2.circle(img, (pointX, pointY), 5, (255, 0, 255), -1, cv2.LINE_AA)
+        except:
+            pass
+        try:
+            xy = roads.GetLocalCoordinateInTile(trafficlight_x, trafficlight_z, tileCoords[0], tileCoords[1])
+            xy = (xy[0] - truckXY[0], xy[1] - truckXY[1])
+            zoomedX = xy[0] * zoom
+            zoomedY = xy[1] * zoom
+            pointX = int(zoomedX + size//2)
+            pointY = int(zoomedY + size//2)
+            cv2.circle(img, (pointX, pointY), 5, (0, 0, 255), -1, cv2.LINE_AA)
+        except:
+            pass
+    
+    return img

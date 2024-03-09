@@ -121,6 +121,9 @@ def plugin(data):
             img = visualize.VisualizePrefabs(data, img=img, zoom=ZOOM)
             
         img = visualize.VisualizeTruck(data, img=img, zoom=ZOOM)
+
+        img = visualize.VisualizeTrafficLights(data, img=img, zoom=ZOOM)
+        
         cv2.namedWindow("Roads", cv2.WINDOW_NORMAL)
         # Make it stay on top
         cv2.setWindowProperty("Roads", cv2.WND_PROP_TOPMOST, 1)

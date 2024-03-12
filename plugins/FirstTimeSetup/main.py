@@ -112,9 +112,8 @@ class UI():
                     settings.AddToList("Plugins", "Enabled", ["LSTRDrawLanes"])
                     settings.AddToList("Plugins", "Enabled", ["LSTRLaneDetection"])
                 elif detectionmethod.get() == "ufld":
-                    ufldmessagebox = messagebox.askokcancel("Are you sure you want to use UFLD",
-                                            "UFLD requires a NVIDIA GPU 1060 TI or better, if you use UFLD without one you risk crashing your system. You are responsible for any damage while using UFLD.",
-                                            icon="warning")
+                    ufldmessagebox = helpers.AskOkCancel("Are you sure you want to use UFLD",
+                                            "UFLD requires a NVIDIA GPU 1060 TI or better, if you use UFLD without one you risk crashing your system. You are responsible for any damage while using UFLD.")
                     if ufldmessagebox == False:
                         return
                     print("UFLD Selected")
@@ -416,9 +415,9 @@ class UI():
                         
                 from tkinter import messagebox
                 if successfullyInstalled != []:
-                    messagebox.showinfo("Success", "Successfully installed at least some plugin(s)!\nYou should start the game now to enable the SDK and continue on!\n\nInstalled to:\n" + "\n".join(successfullyInstalled))    
+                    helpers.ShowSuccess("Successfully installed at least some plugin(s)!\nYou should start the game now to enable the SDK and continue on!\n\nInstalled to:\n" + "\n".join(successfullyInstalled))    
                 else:
-                    messagebox.showerror("Error", "Failed to install the plugin(s)!\nAre you sure you set your path properly?")
+                    helpers.ShowFailure("Failed to install the plugin(s)!\nAre you sure you set your path properly?", title="Error")
                 
                 
             
@@ -442,9 +441,9 @@ class UI():
             
             try:
                 if not api.loading:
-                    api.checkAPI()
+                    api.checkAPI(dontClosePopup=True)
             except:
-                api.checkAPI()
+                api.checkAPI(dontClosePopup=True)
         
         def lastPage(self):
             self.root.destroy()
@@ -509,7 +508,10 @@ class UI():
                 pass
             
             try:
-                self.apiNextButton.config(state="normal", text="Next")
+                if self.apiNextButton.cget("text") == "Waiting for api...":
+                    api.checkAPI(dontClosePopup=True)
+                    if api.isConnected:
+                        self.apiNextButton.config(state="normal", text="Next")
             except:
                 pass
                 

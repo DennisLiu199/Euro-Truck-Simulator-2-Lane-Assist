@@ -35,7 +35,7 @@ DETECT_TRAILERS = True
 lastX = 0
 lastY = 0
 isConnected = False
-
+popup = None
 def plugin(data):
     global API
     global lastX
@@ -43,8 +43,12 @@ def plugin(data):
     
     try:
         checkAPI()
+        if not isConnected:
+            return data
     except:
         print("Error checking API status")
+        import traceback
+        traceback.print_exc()
         return data
     
     apiData = API.update(trailerData=DETECT_TRAILERS)    
@@ -78,32 +82,29 @@ def plugin(data):
 
     return data # Plugins need to ALWAYS return the data
 
-def checkAPI():
+def checkAPI(dontClosePopup=False):
     global API
-    global loading
-    global stop
     global isConnected
-    stop = False
+    global popup
     
     if API == None:
         API = scsTelemetry()
         
     data = API.update(trailerData=DETECT_TRAILERS)
     
-    if data["scsValues"]["telemetryPluginRevision"] < 2:
-        loading = LoadingWindow("Waiting for ETS2 connection...")
-    while data["scsValues"]["telemetryPluginRevision"] < 2 and not stop: 
+    if data["scsValues"]["telemetryPluginRevision"] < 2: 
         isConnected = False
-        data = API.update()
-        loading.update()
-        mainUI.root.update()
-        time.sleep(0.1)
-
-    try:
-        loading.destroy()
-    except: pass
-    
-    isConnected = True
+        if popup == None:
+            popup = helpers.ShowPopup("Waiting for ETS2 to connect\n\nIf you've just installed the SDK\nthen please restart the game.", "Telemetry Server", timeout=0, indeterminate=True, closeIfMainloopStopped=True if not dontClosePopup else False)
+        if popup.closed:
+            popup = None
+    elif isConnected == False:
+        isConnected = True
+        helpers.ShowPopup("\nETS2 connected", "Telemetry Server", timeout=2)
+        try:
+            popup.close()
+            popup = None
+        except: pass
 
 
 # Plugins need to all also have the onEnable and onDisable functions
@@ -120,12 +121,11 @@ def onEnable():
             print("Plugin not installed")
 
 def onDisable():
-    global stop
-    global loading
+    global popup
     
-    stop = True
     try:
-        loading.destroy()
+        popup.close()
+        popup = None
     except: pass
 
 class UI():

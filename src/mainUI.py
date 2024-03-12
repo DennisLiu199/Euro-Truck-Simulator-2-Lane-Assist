@@ -137,14 +137,14 @@ def switchSelectedPlugin(pluginName:str):
     plugin = __import__(pluginName, fromlist=["UI", "PluginInfo"])
 
     if plugin.PluginInfo.disablePlugins == True and (settings.GetSettings("Plugins", "Enabled") != []):
-        if messagebox.askokcancel("Plugins", Translate("The panel has asked to disable all plugins. Do you want to continue?")):
+        if helpers.AskOkCancel("Plugins", Translate("The panel has asked to disable all plugins. Do you want to continue?")):
             settings.CreateSettings("Plugins", "Enabled", [])
             variables.UpdatePlugins()
         else: 
             return
         
     if plugin.PluginInfo.disableLoop == True and variables.ENABLELOOP == True:
-        if messagebox.askokcancel("Plugins", Translate("The panel has asked to disable the mainloop. Do you want to continue?")):
+        if helpers.AskOkCancel("Plugins", Translate("The panel has asked to disable the mainloop. Do you want to continue?")):
             variables.ToggleEnable()
             enableButton.config(text=(Translate("Disable") if variables.ENABLELOOP else Translate("Enable")))
         
@@ -181,7 +181,7 @@ def quit():
     """
     global root
     savePosition()
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+    if helpers.AskOkCancel("Quit", "Do you want to quit?", yesno=True):
         # Destroy the root window
         root.destroy()
         del root
@@ -294,7 +294,6 @@ def resizeWindow(newWidth:int, newHeight:int):
         newHeight (int)
     """
     global root
-    global root
     
     if settings.GetSettings("User Interface", "ScaleWindowBasedOnWindowsSetting", value=True):
         scaling = variables.WINDOWSCALING
@@ -325,8 +324,7 @@ def changeTheme():
     """Would have changed the theme from dark / light to light / dark. Not currently in use.
     """
     print("Changing theme")
-    from tkinter import messagebox
-    messagebox.showinfo("Theme", Translate("Unfortunately with the change to new themes you can no longer change the mode on the fly.\nThis functionality might return in the future."))
+    helpers.ShowInfo(Translate("Unfortunately with the change to new themes you can no longer change the mode on the fly.\nThis functionality might return in the future."))
     # global themeButton
     # themeSelector.SwitchThemeType()
     # themeButton.config(text=Translate(settings.GetSettings("User Interface", "Theme")).capitalize() + " Mode")
@@ -470,6 +468,7 @@ def CreateRoot():
         buttonFrame.destroy()
     except:
         pass
+    
     buttonFrame = ttk.LabelFrame(root, text="Lane Assist", width=width-675, height=height)
     buttonFrame.pack_propagate(0)
     buttonFrame.grid_propagate(0)

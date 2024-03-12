@@ -10,6 +10,8 @@ from tktooltip import ToolTip
 import PyQt5.Qt as Qt
 import src.mainUI as mainUI
 import src.controls as controls
+import src.variables as variables
+import win32gui
 
 lastRow = 0
 lastParent = None
@@ -557,7 +559,8 @@ class PID:
         self.clear()
         
 popups = [] 
-def ShowPopup(text, title, type="info", translate=True, timeout=4):
+timeoutlessPopups = []
+def ShowPopup(text, title, type="info", translate=True, timeout=4, indeterminate=False, closeIfMainloopStopped=False):
     """Will show a popup inside the app window.
 
     Args:
@@ -566,6 +569,8 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4):
         type (str, optional): Optional type, currently only info is implemented. Defaults to "info".
         translate (bool, optional): Whether to translate the text and title or not. Defaults to True.
         timeout (int, optional): Number of seconds to close the popup. If 0, timing is disabled and the popup will need to be manually closed. Defaults to 4.
+        indeterminate (bool, optional): Whether the progressbar should be indeterminate or not. Defaults to False.
+        closeIfMainloopStopped (bool, optional): Whether the popup should close if the mainloop is stopped. Defaults to False.
 
     Returns:
         popup: The popup class.
@@ -575,6 +580,7 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4):
         update(index): Will update the popup. (note: this is usually run by the mainloop, you don't need to call this manually)
         progressBar: The progressbar of the popup. Edit the settings and value of this to change the progress.
         text: The text of the popup. Edit the settings of this to change the text.
+        closed: Indicates whether the popup has been closed or not. Useful if you use closeIfMainloopStopped and keep a reference to the popup.
     """
     global popups
     root = mainUI.root
@@ -583,23 +589,37 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4):
         title = translator.Translate(title)
     
     class popup(ttk.LabelFrame):
-        def __init__(self, parent, text, title, type, timeout):
+        def __init__(self, parent, text, title, type, timeout, indeterminate, closeIfMainloopStopped):
             super().__init__(parent, text=title, width=200, height=100)
             self.pack_propagate(False)
             self.grid_propagate(False)
+            self.closed = False
             self.initTime = time.time()
             self.lastUpdateTime = time.time()
-            self.lastRely = 0.085 + (100*len(popups)/mainUI.root.winfo_height())
-            self.place(relx=0.5, rely=self.lastRely, anchor="center")
+            if timeout == 0: 
+                # Put the popup in the bottom right
+                self.lastRely = ((mainUI.root.winfo_height()-60))/mainUI.root.winfo_height()
+                self.place(relx=(mainUI.root.winfo_width()-110) / mainUI.root.winfo_width(), rely=self.lastRely, anchor="center")
+            else:
+                # Put the popup in the top center
+                self.lastRely = 0.085 + (100*len(popups)/mainUI.root.winfo_height())
+                self.place(relx=0.5, rely=self.lastRely, anchor="center")
             self.text = ttk.Label(self, text=text)
             self.text.pack()
-            self.progressBar = ttk.Progressbar(self, mode="determinate", maximum=timeout, length=190)
+            self.indeterminate = indeterminate
+            self.closeIfMainloopStopped = closeIfMainloopStopped
+            self.progressBar = ttk.Progressbar(self, mode="determinate", maximum=timeout if not indeterminate else 10, length=190)
             self.progressBar.pack(side="bottom")
             self.update(len(popups))
             self.timeout = timeout
             if timeout != 0:
-                RunIn(timeout, lambda: self.destroy(), mainThread=True)
-            
+                RunIn(timeout, lambda: self.close(), mainThread=True)
+            # Bind all the popup elemets to close when clicked on (right or left or middle)
+            for element in [self, self.text, self.progressBar]:
+                element.bind("<Button-1>", lambda e: self.close())
+                element.bind("<Button-2>", lambda e: self.close())
+                element.bind("<Button-3>", lambda e: self.close())
+    
         def update(self, index):
             if not time.time() - self.lastUpdateTime > 0.1:
                 return
@@ -609,20 +629,41 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4):
             if self.timeout != 0:
                 timeSinceInit = time.time() - self.initTime
                 self.progressBar["value"] = timeSinceInit
-            
+            # If the mode is indeterminate, then bounce the value between 0 and 10
+            if self.indeterminate:
+                try:
+                    self.progressBar["value"] = (self.progressBar["value"] + 0.5) % 10
+                except:
+                    pass
             # Update the position based on the amount of popups
             #self.place_forget()
-            rely = 0.085 + (100*index/mainUI.root.winfo_height())
-            if rely != self.lastRely:
-                self.place(relx=0.5, rely=rely, anchor="center")
-                self.lastRely = rely
+            if self.timeout == 0:
+                rely = ((mainUI.root.winfo_height()-60) - (100*index/mainUI.root.winfo_height()))/mainUI.root.winfo_height()
+                if rely != self.lastRely:
+                    self.place(relx=(mainUI.root.winfo_width()-110) / mainUI.root.winfo_width(), rely=rely, anchor="center")
+                    self.lastRely = rely
+            else:    
+                rely = 0.085 + (100*index/mainUI.root.winfo_height())
+                if rely != self.lastRely:
+                    self.place(relx=0.5, rely=rely, anchor="center")
+                    self.lastRely = rely
+            
+            if closeIfMainloopStopped and not variables.ENABLELOOP:
+                self.close()
+                return
             
             super().update()
             
         def close(self):
             self.destroy()
-            
-    popups.append(popup(root, text, title, type, timeout))
+            self.closed = True
+    
+    if timeout == 0:
+        timeoutlessPopups.append(popup(root, text, title, type, timeout, indeterminate, closeIfMainloopStopped))
+        return timeoutlessPopups[-1]
+    else:
+        popups.append(popup(root, text, title, type, timeout, indeterminate, closeIfMainloopStopped))
+    
     return popups[-1]
 
 def ClearPopups():
@@ -633,3 +674,462 @@ def ClearPopups():
     popups = []
     
     mainUI.root.update()
+
+def GetWindowPosition(hwnd):
+    rect = win32gui.GetWindowRect(hwnd)
+    x = rect[0]
+    y = rect[1]
+    w = rect[2] - x
+    h = rect[3] - y
+    return x, y, w, h
+
+import mss
+import mss.tools
+background = None
+def DimAppBackground():
+    """Will take a screenshot of the app and dim it for the background. NOTE: This will overlay the image on the root, so you can't use any other functions. Not recommended to use directly.
+    
+    Returns:
+        tk.Label: The label with the image, also available at helpers.background
+    """
+    global background
+    # Get the app location, and make an mss 
+    x,y,w,h = GetWindowPosition(mainUI.root.winfo_id())
+    with mss.mss() as sct:
+        # The screen part to capture
+        monitor = {"top": y, "left": x, "width": w, "height": h}
+        # Grab the data
+        sct_img = sct.grab(monitor)
+        # Save to a file
+        mss.tools.to_png(sct_img.rgb, sct_img.size, output="screenshot.png")
+    
+    # Open the image
+    from PIL import Image
+    img = Image.open("screenshot.png")
+    # Darken the image
+    img = img.point(lambda p: p * 0.4)
+    # Apply gaussian blur
+    from PIL import ImageFilter
+    img = img.filter(ImageFilter.GaussianBlur(2))
+    # Cut out the titlebar (Not needed with GetWindowPosition)
+    # from plugins.ScreenCapturePlacement.main import GetTitlebarHeight
+    # img = img.crop((0, GetTitlebarHeight(), width, height))
+    # Save the image
+    img.save("screenshot.png")
+    # Open the image with tkinter
+    background = tk.PhotoImage(file="screenshot.png")
+    # Place it on the root
+    label = tk.Label(mainUI.root, image=background)
+    label.place(x=0, y=0, relwidth=1, relheight=1)
+    # Color titlebar
+    from plugins.ThemeSelector.main import ColorTitleBar
+    ColorTitleBar(mainUI.root, "0x141414")
+    return label
+
+def AskOkCancel(title, text, yesno=False, translate=True):
+    """Similar to the tkinter messagebox, but will show the messagebox inside the app window. In addition it will dim the app background with some magic.
+
+    Args:
+        title (str): Title of the messagebox.
+        text (str): Content of the messagebox.
+        translate (bool, optional): Whether to translate the text or not. Defaults to True.
+        
+    Returns:
+        bool: Whether the user pressed ok or cancel.
+    """
+    global selection
+    
+    if translate:
+        title = translator.Translate(title)
+        text = translator.Translate(text)
+    
+    # Dim the app 
+    background = DimAppBackground()
+    # Create the messagebox
+    f = tk.Frame()
+    frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+    ttk.Label(frame, text="", font=("Segoe UI", 6, "bold")).pack()
+    title = ttk.Label(frame, text=title, font=("Segoe UI", 12, "bold"))
+    title.pack()
+    text = ttk.Label(frame, text=text)
+    text.pack(pady=0)
+    
+    selection = None
+    def Answer(answer):
+        global selection
+        frame.destroy()
+        background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        selection = answer
+    
+    # Empty line
+    ttk.Label(frame, text="").pack()
+    
+    # Create the buttons
+    buttonFrame = ttk.Frame(frame)
+    buttonFrame.pack()
+    okText = "Ok" if not yesno else "Yes"
+    cancelText = "Cancel" if not yesno else "No"
+    if translate:
+        okText = translator.Translate(okText)
+        cancelText = translator.Translate(cancelText)
+    okButton = ttk.Button(buttonFrame, text=okText, command=lambda: Answer(True))
+    okButton.pack(side="left", padx=10)
+    cancelButton = ttk.Button(buttonFrame, text=cancelText, command=lambda: Answer(False))
+    cancelButton.pack(side="right", padx=10)
+    # Place the messagebox
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    # Bind enter to ok
+    mainUI.root.bind("<Return>", lambda e: Answer(True))
+    # Bind escape and backspace to cancel
+    mainUI.root.bind("<Escape>", lambda e: Answer(False))
+    mainUI.root.bind("<BackSpace>", lambda e: Answer(False))
+    # Increase the width and height of the frame by 20 to make it fit better
+    try:
+        frame.update()
+        propagateSize = frame.winfo_width() + 20, frame.winfo_height() + 20
+        frame.pack_propagate(False)
+        frame.config(width=propagateSize[0], height=propagateSize[1])
+    except: # Closed before the frame was updated
+        return selection
+    # Get focus if we don't have it
+    if not mainUI.root.focus_get():
+        mainUI.root.focus_force()
+    
+    mainUI.root.update()
+    
+    while selection == None:
+        # Wait for the user to press a button
+        mainUI.root.update()
+        
+    return selection
+
+def RunInMainThread(function, *args, **kwargs):
+    """Will run the given function in the main thread.
+
+    Args:
+        function (lambda): The function to run.
+    """
+    RunIn(0, function, mainThread=True, *args, **kwargs)
+    
+def Dialog(title, text, options, enterOption="", escapeOption="", translate=True):
+    """Will show a dialog with the options specified.
+
+    Args:
+        title (str): Dialog title.
+        text (str): Dialog text.
+        options ([str]): The options to choose from (str array).
+        enterOption (str, optional): The option to bind the Enter key to. Defaults to "".
+        escapeOption (str, optional): The option to bind the Escape and Backspace keys to. Defaults to "".
+        translate (bool, optional): Whether to translate the text or not. Defaults to True.
+    
+    Returns:
+        str: The option that was chosen.
+    """
+    global selection
+    
+    if translate:
+        title = translator.Translate(title)
+        text = translator.Translate(text)
+        options = [translator.Translate(option) for option in options]
+    
+    # Dim the app 
+    background = DimAppBackground()
+    # Create the messagebox
+    f = tk.Frame()
+    frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+    ttk.Label(frame, text="", font=("Segoe UI", 6, "bold")).pack()
+    title = ttk.Label(frame, text=title, font=("Segoe UI", 12, "bold"))
+    title.pack()
+    text = ttk.Label(frame, text=text)
+    text.pack()
+    
+    selection = None
+    def Answer(answer):
+        global selection
+        frame.destroy()
+        background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        selection = answer
+    
+    # Empty line
+    ttk.Label(frame, text="").pack()
+    ttk.Label(frame, text="").pack()
+    
+    # Create the buttons
+    buttonFrame = ttk.Frame(frame)
+    buttonFrame.pack()
+    for option in options:
+        button = ttk.Button(buttonFrame, text=option, command=lambda option=option: Answer(option))
+        button.pack(side="left", padx=10)
+    # Place the messagebox
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    # Bind enter
+    if enterOption != "":
+        mainUI.root.bind("<Return>", lambda e: Answer(enterOption))
+    # Bind escape and backspace
+    if escapeOption != "":
+        mainUI.root.bind("<Escape>", lambda e: Answer(escapeOption))
+        mainUI.root.bind("<BackSpace>", lambda e: Answer(escapeOption))
+    # Increase the width and height of the frame by 20 to make it fit better
+    try:
+        frame.update()
+        propagateSize = frame.winfo_width() + 20, frame.winfo_height() + 20
+        frame.pack_propagate(False)
+        frame.config(width=propagateSize[0], height=propagateSize[1])
+    except: # Closed before the frame was updated
+        return selection
+    # Get focus if we don't have it
+    if not mainUI.root.focus_get():
+        mainUI.root.focus_force()
+    
+    mainUI.root.update()
+    
+    while selection == None:
+        # Wait for the user to press a button
+        mainUI.root.update()
+        
+    return selection
+
+class FrameDialog():
+    """Will create a new dialog to display a frame inside.
+    
+    Args:
+        closeButtonText (str, optional): The text of the close button. Defaults to "Close".
+    
+    Usage:
+    ```python	
+    dialog = FrameDialog()
+    frame = ttk.Frame(dialog.frame)
+    dialog.close()
+    ```
+    """
+    
+    def close(self):
+        """Will close the dialog."""
+        self.frame.destroy()
+        self.background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        del self
+        
+    def __init__(self) -> None:
+        # Dim the app
+        self.background = DimAppBackground()
+        # Create the frame
+        f = tk.Frame()
+        self.frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+        # Place the frame
+        self.frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+
+def ShowSuccess(text, title="Success", translate=True):
+    """Will show a success message inside the app window.
+
+    Args:
+        text (str): The success message.
+        title (str, optional): The title of the success message. Defaults to "Success".
+        translate (bool, optional): Whether to translate the text and title or not. Defaults to True.
+    """
+    if translate:
+        title = translator.Translate(title)
+        text = translator.Translate(text)
+    
+    # Dim the app 
+    background = DimAppBackground()
+    # Create the messagebox
+    f = tk.Frame()
+    frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+    ttk.Label(frame, text="", font=("Segoe UI", 6, "bold")).pack()
+    title = ttk.Label(frame, text=title, font=("Segoe UI", 12, "bold"), foreground="#008800")
+    title.pack()
+    text = ttk.Label(frame, text=text)
+    text.pack(pady=0)
+    
+    selection = None
+    def Answer(answer):
+        global selection
+        frame.destroy()
+        background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        selection = answer
+    
+    # Empty line
+    ttk.Label(frame, text="").pack()
+    
+    # Create the buttons
+    buttonFrame = ttk.Frame(frame)
+    buttonFrame.pack()
+    if translate:
+        okText = translator.Translate("Ok")
+    okButton = ttk.Button(buttonFrame, text=okText, command=lambda: Answer(True))
+    okButton.pack(side="bottom", padx=10)
+    # Place the messagebox
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    # Bind enter to ok
+    mainUI.root.bind("<Return>", lambda e: Answer(True))
+    # Bind escape and backspace to cancel
+    mainUI.root.bind("<Escape>", lambda e: Answer(False))
+    mainUI.root.bind("<BackSpace>", lambda e: Answer(False))
+    # Increase the width and height of the frame by 20 to make it fit better
+    try:
+        frame.update()
+        propagateSize = frame.winfo_width() + 20, frame.winfo_height() + 20
+        frame.pack_propagate(False)
+        frame.config(width=propagateSize[0], height=propagateSize[1])
+    except: # Closed before the frame was updated
+        return selection
+    # Get focus if we don't have it
+    if not mainUI.root.focus_get():
+        mainUI.root.focus_force()
+    
+    mainUI.root.update()
+    
+    while selection == None:
+        # Wait for the user to press a button
+        mainUI.root.update()
+        
+    return
+
+def ShowFailure(text, title="Failure", translate=True):
+    """Will show a failure message inside the app window.
+
+    Args:
+        text (str): The failure message.
+        title (str, optional): The title of the failure message. Defaults to "Failure".
+        translate (bool, optional): Whether to translate the text and title or not. Defaults to True.
+    """
+    if translate:
+        title = translator.Translate(title)
+        text = translator.Translate(text)
+    
+    # Dim the app 
+    background = DimAppBackground()
+    # Create the messagebox
+    f = tk.Frame()
+    frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+    ttk.Label(frame, text="", font=("Segoe UI", 6, "bold")).pack()
+    title = ttk.Label(frame, text=title, font=("Segoe UI", 12, "bold"), foreground="#cc2200")
+    title.pack()
+    text = ttk.Label(frame, text=text)
+    text.pack(pady=0)
+    
+    selection = None
+    def Answer(answer):
+        global selection
+        frame.destroy()
+        background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        selection = answer
+    
+    # Empty line
+    ttk.Label(frame, text="").pack()
+    
+    # Create the buttons
+    buttonFrame = ttk.Frame(frame)
+    buttonFrame.pack()
+    if translate:
+        okText = translator.Translate("Ok")
+    okButton = ttk.Button(buttonFrame, text=okText, command=lambda: Answer(True))
+    okButton.pack(side="bottom", padx=10)
+    # Place the messagebox
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    # Bind enter to ok
+    mainUI.root.bind("<Return>", lambda e: Answer(True))
+    # Bind escape and backspace to cancel
+    mainUI.root.bind("<Escape>", lambda e: Answer(False))
+    mainUI.root.bind("<BackSpace>", lambda e: Answer(False))
+    # Increase the width and height of the frame by 20 to make it fit better
+    try:
+        frame.update()
+        propagateSize = frame.winfo_width() + 20, frame.winfo_height() + 20
+        frame.pack_propagate(False)
+        frame.config(width=propagateSize[0], height=propagateSize[1])
+    except: # Closed before the frame was updated
+        return selection
+    
+    # Get focus if we don't have it
+    if not mainUI.root.focus_get():
+        mainUI.root.focus_force()
+        
+    mainUI.root.update()
+    
+    while selection == None:
+        # Wait for the user to press a button
+        mainUI.root.update()
+        
+    return
+
+def ShowInfo(text, title="Info", translate=True):
+    """Will show an info message inside the app window.
+
+    Args:
+        text (str): The info message.
+        title (str, optional): The title of the info message. Defaults to "Info".
+        translate (bool, optional): Whether to translate the text and title or not. Defaults to True.
+    """
+    if translate:
+        title = translator.Translate(title)
+        text = translator.Translate(text)
+    
+    # Dim the app 
+    background = DimAppBackground()
+    # Create the messagebox
+    f = tk.Frame()
+    frame = ttk.LabelFrame(mainUI.root, labelwidget=f)
+    ttk.Label(frame, text="", font=("Segoe UI", 6, "bold")).pack()
+    title = ttk.Label(frame, text=title, font=("Segoe UI", 12, "bold"))
+    title.pack()
+    text = ttk.Label(frame, text=text)
+    text.pack(pady=0)
+    
+    selection = None
+    def Answer(answer):
+        global selection
+        frame.destroy()
+        background.destroy()
+        from plugins.ThemeSelector.main import ColorTitleBar
+        ColorTitleBar(mainUI.root, "0x313131")
+        selection = answer
+    
+    # Empty line
+    ttk.Label(frame, text="").pack()
+    
+    # Create the buttons
+    buttonFrame = ttk.Frame(frame)
+    buttonFrame.pack()
+    if translate:
+        okText = translator.Translate("Ok")
+    okButton = ttk.Button(buttonFrame, text=okText, command=lambda: Answer(True))
+    okButton.pack(side="bottom", padx=10)
+    # Place the messagebox
+    frame.place(relx=0.5, rely=0.5, anchor="center")
+    # Bind enter to ok
+    mainUI.root.bind("<Return>", lambda e: Answer(True))
+    # Bind escape and backspace to cancel
+    mainUI.root.bind("<Escape>", lambda e: Answer(False))
+    mainUI.root.bind("<BackSpace>", lambda e: Answer(False))
+    # Increase the width and height of the frame by 20 to make it fit better
+    try:
+        frame.update()
+        propagateSize = frame.winfo_width() + 20, frame.winfo_height() + 20
+        frame.pack_propagate(False)
+        frame.config(width=propagateSize[0], height=propagateSize[1])
+    except: # Closed before the frame was updated
+        return selection
+    
+    # Get focus if we don't have it
+    if not mainUI.root.focus_get():
+        mainUI.root.focus_force()
+        
+    mainUI.root.update()
+    
+    while selection == None:
+        # Wait for the user to press a button
+        mainUI.root.update()
+        
+    return

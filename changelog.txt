@@ -1,2 +1,2 @@
-- (devs) Add support for popups
-- Fix importlib_metadata trying to install on each start.
+Added more dialogs.
+All websites now open IN APP.

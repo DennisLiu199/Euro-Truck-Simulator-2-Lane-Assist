@@ -281,11 +281,13 @@ def plugin(data):
         valid_frame = False
         return data
     
-    if (0 <= map_topleft[0] < arrow_topleft[0] < arrow_bottomright[0] < map_bottomright[0] < data["frameFull"].shape[1]) and (0 <= map_topleft[1] < arrow_topleft[1] < arrow_bottomright[1] < map_bottomright[1] < data["frameFull"].shape[0]):
-        valid_setup = True
+    if map_topleft != None and map_bottomright != None and arrow_topleft != None and arrow_bottomright != None:
+        if (0 <= map_topleft[0] < arrow_topleft[0] < arrow_bottomright[0] < map_bottomright[0] < data["frameFull"].shape[1]) and (0 <= map_topleft[1] < arrow_topleft[1] < arrow_bottomright[1] < map_bottomright[1] < data["frameFull"].shape[0]):
+            valid_setup = True
+        else:
+            valid_setup = False
     else:
         valid_setup = False
-        return data
     
     if valid_setup == False:
         print("NavigationDetection: Invalid frame or setup. Possible fix: Set the screen capture to your main monitor in your Screen Capture Plugin. Non-main monitor support coming soon.")
@@ -737,7 +739,7 @@ def plugin(data):
     
     map_detected = True
     
-    if map_topleft == None or map_bottomright == None or arrow_topleft == None or arrow_bottomright == None or arrow_percentage == None or map_topleft[0] > map_bottomright[0] or map_topleft[1] > map_bottomright[1] or arrow_topleft[0] > arrow_bottomright[0] or arrow_topleft[1] > arrow_bottomright[1]:
+    if valid_setup == False:
         if allow_playsound == True:
             sounds.PlaysoundFromLocalPath("assets/sounds/info.mp3")
             allow_playsound = False
@@ -1012,19 +1014,17 @@ def plugin(data):
     return data
         
 
-# Plugins need to all also have the onEnable and onDisable functions
 def onEnable():
     pass
 
 def onDisable():
     pass
 
-# Plugins can also have UIs, this works the same as the panel example
+
 class UI():
-    try: # The panel is in a try loop so that the logger can log errors if they occur
-        
+    try:
         def __init__(self, master) -> None:
-            self.master = master # "master" is the mainUI window
+            self.master = master
             self.exampleFunction()
             resizeWindow(950,600)        
         
@@ -1033,7 +1033,7 @@ class UI():
             self.root.destroy()
             del self
         
-        def tabFocused(self): # Called when the tab is focused
+        def tabFocused(self):
             resizeWindow(950,600)
 
         def UpdateSettings(self):
@@ -1051,11 +1051,11 @@ class UI():
         def exampleFunction(self):
             
             try:
-                self.root.destroy() # Load the UI each time this plugin is called
+                self.root.destroy()
             except: pass
             
             self.root = tk.Canvas(self.master, width=950, height=600, border=0, highlightthickness=0)
-            self.root.grid_propagate(1) # Don't fit the canvast to the widgets
+            self.root.grid_propagate(1)
             self.root.pack_propagate(0)
             
             notebook = ttk.Notebook(self.root)
@@ -1110,9 +1110,19 @@ class UI():
 
             helpers.MakeButton(generalFrame, "Give feedback, report a bug or suggest a new feature", lambda: switchSelectedPlugin("plugins.Feedback.main"), 12, 0, width=80, sticky="nw")
 
-            helpers.MakeButton(generalFrame, "Open Wiki", lambda: helpers.OpenInBrowser("https://wiki.tumppi066.fi/plugins/navigationdetection"), 12, 1, width=23, sticky="nw")
+            helpers.MakeButton(generalFrame, "Open Wiki", lambda: OpenWiki(), 12, 1, width=23, sticky="nw")
 
-            
+            def OpenWiki():
+                browser = helpers.Dialog("Wiki","In which brower should the wiki be opened?", ["In-app browser", "External browser"], "In-app browser", "External Browser")
+                if browser == "In-app browser":
+                    from src.mainUI import closeTabName
+                    from plugins.Wiki.main import LoadURL
+                    closeTabName("Wiki")
+                    LoadURL("https://wiki.tumppi066.fi/plugins/navigationdetection")
+                else:
+                    helpers.OpenInBrowser("https://wiki.tumppi066.fi/plugins/navigationdetection")
+
+
             helpers.MakeLabel(setupFrame, "Choose a setup method:", 1, 0, font=("Robot", 12, "bold"), sticky="nw")
             
             helpers.MakeButton(setupFrame, "Automatic Setup", self.automatic_setup, 2, 0, sticky="nw")
@@ -1132,15 +1142,37 @@ class UI():
             LoadSettings()
         
         def manual_setup(self):
-            subprocess.Popen([f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe", os.path.join(variables.PATH, "plugins/NavigationDetection", "manual_setup.py")], shell=True)
+            found_venv = True
+            if os.path.exists(f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe") == False:
+                print("\033[91m" + "Your installation is missing the venv. This is probably because you didn't install the app using the installer." + "\033[0m")
+                found_venv = False
+            if os.path.exists(f"{variables.PATH}plugins/NavigationDetection/manual_setup.py") == True:
+                if found_venv == True:
+                    subprocess.Popen([f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe", os.path.join(variables.PATH, "plugins/NavigationDetection", "manual_setup.py")], shell=True)
+                else:
+                    print("\033[91m" + "Running the code outside of the venv. You may need to install the requirements manually using this command in a terminal: " + "\033[0m" + "pip install tk numpy mouse opencv-python mss" + "\033[0m")
+                    subprocess.Popen(["python", os.path.join(variables.PATH, "plugins", "NavigationDetection", "manual_setup.py")])
+            else:
+                print("\033[91m" + f"Your installation is missing the manual_setup.py. Download it manually from the GitHub and place it in this path: {variables.PATH}plugins\\NavigationDetection\\manual_setup.py" + "\033[0m")
 
         def automatic_setup(self):
-            subprocess.Popen([f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe", os.path.join(variables.PATH, "plugins/NavigationDetection", "automatic_setup.py")], shell=True)
+            found_venv = True
+            if os.path.exists(f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe") == False:
+                print("\033[91m" + "Your installation is missing the venv. This is probably because you didn't install the app using the installer." + "\033[0m")
+                found_venv = False
+            if os.path.exists(f"{variables.PATH}plugins/NavigationDetection/automatic_setup.py") == True:
+                if found_venv == True:
+                    subprocess.Popen([f"{os.path.dirname(os.path.dirname(variables.PATH))}/venv/Scripts/python.exe", os.path.join(variables.PATH, "plugins/NavigationDetection", "automatic_setup.py")], shell=True)
+                else:
+                    print("\033[91m" + "Running the code outside of the venv. You may need to install the requirements manually using this command in a terminal: " + "\033[0m" + "pip install tk numpy requests mouse opencv-python mss torch" + "\033[0m")
+                    subprocess.Popen(["python", os.path.join(variables.PATH, "plugins", "NavigationDetection", "automatic_setup.py")])
+            else:
+                print("\033[91m" + f"Your installation is missing the automatic_setup.py. Download it manually from the GitHub and place it in this path: {variables.PATH}plugins\\NavigationDetection\\automatic_setup.py" + "\033[0m")
 
-        def update(self, data): # When the panel is open this function is called each frame 
+        def update(self, data):
             self.root.update()
     
     except Exception as ex:
         print(ex.args)
 
-# this comment is used to reload the app after finishing the setup - 1
+# this comment is used to reload the app after finishing the setup - 0

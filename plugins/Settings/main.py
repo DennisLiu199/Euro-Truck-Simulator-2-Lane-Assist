@@ -44,7 +44,7 @@ class UI():
                 settings.RemoveFromList("Plugins", "Installed", plugin)
             
             from tkinter import messagebox
-            messagebox.showinfo("Reinstall", "All plugins will be reinstalled on next startup. The application will now close.")
+            helpers.ShowInfo("All plugins will be reinstalled on next startup. The application will now close.", title="Reinstall")
             mainUI.quit()
             
         def exampleFunction(self):
@@ -84,7 +84,7 @@ class UI():
             settings.CreateSettings("User Interface", "updateRate", self.updateRate.get())
             if settings.GetSettings("User Interface", "DPIAwareness") != self.awareness.get():
                 settings.CreateSettings("User Interface", "DPIAwareness", self.awareness.get())
-                tk.messagebox.showinfo("Restart required", "You need to restart the app for the DPI mode to take effect.")
+                helpers.ShowInfo("You need to restart the app for the DPI mode to take effect.", title="Restart required")
             # settings.CreateSettings("Plugins", "Ignore", self.ignore.get())
             if settings.GetSettings("User Interface", "hide_console") == False:
                 console.RestoreConsole()
@@ -98,7 +98,7 @@ class UI():
 
         def show_crashreports_info(self):
             if self.crashreport.get():
-                CrashReportWindow = tk.messagebox.askokcancel("CrashReporter", "This will send anonymous crash report data to the developers.\nThis can help improve the app and fix any bugs that are found.\n This will send only the error that caused the app to crash.\n Your name and person info will be censored.\n\nDo you want to continue?", icon="warning") 
+                CrashReportWindow = helpers.AskOkCancel("CrashReporter", "This will send anonymous crash report data to the developers.\nThis can help improve the app and fix any bugs that are found.\n This will send only the error that caused the app to crash.\n Your name and person info will be censored.\n\nDo you want to continue?") 
                 if CrashReportWindow == True:
                     settings.CreateSettings("CrashReporter", "AllowCrashReports", True)
                 else: 

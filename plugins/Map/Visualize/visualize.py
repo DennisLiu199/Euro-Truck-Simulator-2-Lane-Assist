@@ -283,7 +283,10 @@ def VisualizeTruck(data, img=None, zoom=2):
     
      
     # Draw the trailers
-    trailers = data["api"]["trailers"]
+    try:
+        trailers = data["api"]["trailers"]
+    except:
+        return img
     for i in range(len(trailers)):
         trailerXY = roads.GetLocalCoordinateInTile(trailers[i]["comDouble"]["worldX"], trailers[i]["comDouble"]["worldZ"], tileXY[0], tileXY[1])
         trailerX = int((trailerXY[0] - truckXY[0]) * zoom + size//2)

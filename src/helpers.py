@@ -684,6 +684,15 @@ def ShowPopup(text, title, type="info", translate=True, timeout=4, indeterminate
     
     return popups[-1]
 
+def ClearPopups():
+    """Will close all popups."""
+    global popups
+    for i in popups:
+        i.close()
+    popups = []
+
+    mainUI.root.update()
+
 def GetWindowPosition(hwnd):
     rect = win32gui.GetWindowRect(hwnd)
     x = rect[0]

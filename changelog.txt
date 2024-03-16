@@ -1,2 +1,2 @@
-Added more dialogs.
-All websites now open IN APP.
+- Fixed PyWin32 Bing In requirements twice
+- Add MSS to requirements to fix startup issue

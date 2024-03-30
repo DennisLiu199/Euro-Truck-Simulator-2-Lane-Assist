@@ -48,46 +48,74 @@ def find_string_in_file(file_path, target_string, start_line=0):
 
 
 def getpath():
-    current_profile_path = gamefiles.GetCurrentProfilePath()
-    saves = []
-    for folder in os.listdir(current_profile_path + "/save"):
-        saves.append((folder, os.path.getmtime(f"{current_profile_path}/save/{folder}")))
-    if saves != []:
-        saves.sort(key=lambda x: x[1], reverse=True)
-        most_recent_save = saves[0]
-        print(most_recent_save)
-    else:
-        most_recent_save = None
-    if most_recent_save != None:
-        game_sii_path = gamefiles.GetCurrentProfilePath() + "/save/" + most_recent_save[0] + "/game.sii"
-    else:
-        print("No profile with saves in documents found, unable to read file.")
-        game_sii_path = None
-    return game_sii_path
+     current_profile_path = gamefiles.GetCurrentProfilePath()
+     print(current_profile_path)
+     if "steam" in current_profile_path:
+         steam_profiles = []
+         for folder in os.listdir("C:/Program Files (x86)/Steam/userdata/"):
+             steam_profiles.append((folder, os.path.getmtime(f"C:/Program Files (x86)/Steam/userdata/{folder}")))
+         if steam_profiles != []:
+             steam_profiles.sort(key=lambda x: x[1], reverse=True)
+             most_recent_steam_profile = steam_profiles[0]
+         else:
+             most_recent_steam_profile = None
+         if most_recent_steam_profile != None:
+            for folder in os.listdir("C:/Program Files (x86)/Steam/userdata/" + most_recent_steam_profile[0] + "/227300/remote/profiles"):
+                 game_profiles = []
+                 game_profiles.append(
+                     (folder, os.path.getmtime(f"C:/Program Files (x86)/Steam/userdata/{most_recent_steam_profile[0]}/227300/remote/profiles/{folder}")))
+            if game_profiles != []:
+                game_profiles.sort(key=lambda x: x[1], reverse=True)
+                most_recent_game_profile = game_profiles[0]
+            else:
+                most_recent_game_profile = None
+            if most_recent_game_profile != None:
+                current_profile_path = "C:/Program Files (x86)/Steam/userdata/" + most_recent_steam_profile[0] + "/227300/remote/profiles/" + most_recent_game_profile[0]
+                print(current_profile_path)
+     saves = []
+     for folder in os.listdir(current_profile_path + "/save"):
+         saves.append((folder, os.path.getmtime(f"{current_profile_path}/save/{folder}")))
+     if saves != []:
+         saves.sort(key=lambda x: x[1], reverse=True)
+         most_recent_save = saves[0]
+     else:
+         most_recent_save = None
+     if most_recent_save != None:
+         game_sii_path = gamefiles.GetCurrentProfilePath() + "/save/" + most_recent_save[0] + "/game.sii"
+         print(game_sii_path)
+     else:
+         print(RED + "No profile with saves in documents found, unable to read file." + NORMAL)
+         game_sii_path = None
+     return game_sii_path
 
 try:
-    subprocess.call([variables.PATH, "plugins/PrintGameFOV/SII_Decrypt.exe"])
+     subprocess.call(["plugins/PrintGameFOV/SII_Decrypt.exe"] + [getpath()])
+     print(["plugins/PrintGameFOV/SII_Decrypt.exe"] + [getpath()])
+     print(os.path.exists("plugins/PrintGameFOV/SII_Decrypt.exe"))
 
-    my_truck_result = find_string_in_file(getpath() if getpath() != None else "", "my_truck:")
-    my_truck_string = my_truck_result[0]
-    my_truck_result_string = my_truck_string.replace("my_truck: ", "")
-    my_truck_result_string = my_truck_result_string.replace("\n", "")
+     my_truck_result = find_string_in_file( getpath(), "my_truck:")
+     my_truck_string = my_truck_result[0]
+     my_truck_result_string = my_truck_string.replace("my_truck: ", "")
+     my_truck_result_string = my_truck_result_string.replace("\n", "")
 
 
-    vehicle_target = f"vehicle :{my_truck_result_string}"
-    fov_from_game = find_string_in_file( getpath(), "user_fov:", find_string_in_file( getpath(), vehicle_target)[1])
-    fov_from_game_result = fov_from_game[0].replace(" user_fov:", "")
-    fov_from_game_result = int(fov_from_game_result.replace("\n", ""))
-    fov_converted = fov_from_game_result + 65
+     vehicle_target = f"vehicle :{my_truck_result_string}"
+     fov_from_game = find_string_in_file( getpath(), "user_fov:", find_string_in_file( getpath(), vehicle_target)[1])
+     fov_from_game_result = fov_from_game[0].replace(" user_fov:", "")
+     fov_from_game_result = int(fov_from_game_result.replace("\n", ""))
+     fov_converted = fov_from_game_result + 65
+     print(fov_converted)
 
 except Exception as ex:
      print(ex.args)
      pass
-   
+     
 
 # The main file runs the "plugin" function each time the plugin is called
 # The data variable contains the data from the mainloop, plugins can freely add and modify data as needed
 # The data from the last frame is contained under data["last"]
+controls.RegisterKeybind("Print game time", defaultButtonIndex=",")
+lastPressed = False
 
 def plugin(data):
     try:

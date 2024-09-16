@@ -270,6 +270,8 @@
     "plugins.trafficlightdetection.description": "Detects traffic lights using computer vision and can display them in an output window. It communicates with the CruiseControl plugin to stop the truck at red traffic lights.",
     "plugins.truckstats": "Truck Stats",
     "plugins.truckstats.description": "This plugin shows some statistics about the truck, route and the game.",
+    "plugins.bettersteering": "BetterSteering.",
+    "plugins.bettersteering.description": "Plugin that makes better in-game steering",
 
     "_PLUGIN_SETTINGS": "Please leave a space here to seperate the different sections of the translations.",
 

@@ -254,6 +254,8 @@
     "plugins.trafficlightdetection.description",
     "plugins.truckstats",
     "plugins.truckstats.description",
+    "plugins.bettersteering",
+    "plugins.bettersteering.description" ,
 
     "global.settings.1.title",
     "global.settings.1.description",
